@@ -23,7 +23,7 @@ Carregando os dados.
 (Lembre do Import Dataset)
 
 ```{r}
-alunos.tudo = read.csv("dados/alunos-ad1.csv",
+alunos.tudo = read.csv("../dados/alunos-ad1.csv",
                        header=FALSE, 
                        comment.char="#")
 
