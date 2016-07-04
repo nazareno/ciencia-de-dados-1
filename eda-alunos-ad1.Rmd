@@ -1,0 +1,137 @@
+---
+title: "Dados dos alunos de Ad1"
+author: "Nazareno"
+date: "1 de julho de 2016"
+output:
+  html_document:
+    theme: readable
+    toc: true
+    toc_float: true
+    fig_width: 5
+    fig_height: 4
+---
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+theme_set(theme_bw())
+```
+
+# Uma vista em alguns dados dos alunos de AD1
+
+Carregando os dados. 
+(Lembre do Import Dataset)
+
+```{r}
+alunos.tudo = read.csv("dados/alunos-ad1.csv",
+                       header=FALSE, 
+                       comment.char="#")
+
+#alunos.tudo %>% View()
+# mesmo que View(alunos)
+
+alunos.tudo %>% 
+  head() %>% 
+  select(2, 3)
+# select(head(alunos), 2, 3)
+
+alunos = alunos.tudo %>% 
+  select(2, 4, 5, 8, 10, 11)
+
+names(alunos) = c("sexo", 
+                  "repositorios", 
+                  "linguagens", 
+                  "altura", 
+                  "tempo.para.ufcg", 
+                  "transporte")
+
+alunos = alunos %>% filter(transporte != "")
+```
+
+## Barras e histogramas para contar frequências
+
+```{r}
+ggplot(alunos) + 
+  geom_bar(mapping = aes(x = linguagens))
+
+ggplot(alunos) + 
+  geom_histogram(mapping = aes(x = repositorios), 
+                 fill = "white", 
+                 colour = "black",
+                 breaks = c(0, 5, 10, 15, 20, 25)) 
+
+ggplot(alunos) + 
+  geom_histogram(mapping = aes(x = repositorios), 
+                 fill = "white", 
+                 colour = "black",
+                 breaks = c(0, 3, 6, 9, 12, 15, 18, 21, 24)) 
+
+ggplot(alunos) + 
+  geom_bar(mapping = aes(x = sexo) )
+```
+
+## Duas variáveis numéricas
+
+```{r}
+ggplot(data = alunos) +
+  geom_point(mapping = aes(x = linguagens, 
+                           y = repositorios, 
+                           colour = sexo), 
+             alpha = 0.7) 
+
+ggplot(data = alunos) +
+  geom_point(mapping = aes(x = altura, 
+                           y = linguagens), 
+             alpha = 0.7) 
+
+```
+
+## Uma numérica e uma categórica
+
+```{r}
+ggplot(alunos) + 
+  geom_histogram(mapping = aes(tempo.para.ufcg), 
+                 binwidth = 10)
+
+ggplot(alunos) + 
+  geom_density(mapping = aes(tempo.para.ufcg))
+
+ggplot(alunos) + 
+  geom_bar(mapping = aes(transporte))
+
+ggplot(alunos, mapping = aes(x = transporte, 
+                             y = tempo.para.ufcg)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = .2), 
+             alpha = .7) 
+
+ggplot(alunos, mapping = aes(x = transporte, 
+                             y = tempo.para.ufcg)) + 
+  geom_boxplot() + 
+  geom_point(position = position_jitter(width = .2), 
+             alpha = .7) 
+
+```
+
+# Um outro dataset maior
+
+Para ver a descrição desses dados: `?diamonds`.
+
+```{r}
+diamonds
+ggplot(diamonds) + 
+  geom_histogram(mapping = aes(x = carat))
+
+ggplot(diamonds) + 
+  geom_density(mapping = aes(x = carat))
+
+ggplot(diamonds) + 
+  geom_histogram(mapping = aes(x = carat), 
+                 binwidth = .01) 
+
+ggplot(diamonds, mapping = aes(x = cut, y = carat)) + 
+  geom_boxplot()  
+  #geom_point(position = position_jitter(width = .2), alpha = .02)
+```
+
+
