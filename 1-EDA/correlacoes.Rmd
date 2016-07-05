@@ -1,0 +1,152 @@
+---
+title: "Algumas dicas sobre formas e medidas de correlação"
+author: "Nazareno Andrade"
+date: "13 de março de 2016"
+output: html_document
+---
+
+```{r, message=FALSE}
+require(ggplot2, quietly = TRUE)
+require(GGally, quietly = TRUE)
+require(reshape2, quietly = TRUE)
+require(dplyr, quietly = TRUE)
+```
+
+## Sobre forma e medida
+
+Em análise exploratória, com frequência queremos examinar se há associação entre duas variáveis numéricas. Conselho importante: não há um número apenas que possa lhe responder tudo sobre a associação entre as duas variáveis. As medidas de correlação que você usará servirão mais para complementar e quantificar observações feitas em gráficos de dispersão do que para lhe guiar. 
+
+Um exemplo classico com quatro pares de variáveis cujas associações interessam: x1 e y1, x2 e y2, etc., o [quarteto de Anscombe](https://en.wikipedia.org/wiki/Anscombe%27s_quartet):
+
+```{r}
+summary(anscombe)
+
+# um pouco de rearrumação primeiro. 
+# (para entender melhor, você pode procurar sobre dados em formato
+# wide ou long no R)
+t1 <- melt(select(anscombe, 1:4), id = c())
+t2 <- melt(select(anscombe, 5:8), id = c())
+names(t2) <- c("v2", "value2")
+dados <- data.frame(vars = paste(t1$variable, "e", t2$v2), 
+               v1 = t1$value, 
+               v2 = t2$value2)
+```
+
+Calculando a correlação linear: 
+
+```{r}
+dados %>% 
+  group_by(vars) %>% 
+  summarise(correlacao = cor(v1, v2, method = "pearson"))
+```
+
+E se olharmos os dados?
+
+```{r}
+ggplot(dados, aes(v1, v2)) + 
+  geom_point(color = "darkorange", size = 4, alpha = 0.7) + 
+  theme_bw() + 
+  scale_x_continuous(breaks = seq(0, 20, 2)) + 
+  scale_y_continuous(breaks = seq(0, 12, 2)) + 
+  expand_limits(x = 0, y = 0) + 
+  facet_wrap(~ vars)
+```
+
+Quatro relações diferentes, mesma quantificação. Para o segundo grupo, não há uma relação linear. No 3o, há uma relação perfeita entre a maioria das observações, com uma exceção. No 4o grupo não há relação; há uma exceção que faz parecer que há uma relação.
+
+O que os outros coeficientes podem nos dizer? 
+
+```{r}
+dados %>% 
+  group_by(vars) %>% 
+  summarise(pearson = cor(v1, v2, method = "pearson"), 
+            spearman = cor(v1, v2, method = "spearman"),
+            kendall = cor(v1, v2, method = "kendall"))
+```
+
+-------------
+
+##Força e também direção
+
+Dito isso, essa figura ajuda a lembrar a relação entre o valor esperado do coeficiente (linear) e vários tipos de associação entre duas variáveis:
+
+![da wikipedia](https://upload.wikimedia.org/wikipedia/commons/d/d4/Correlation_examples2.svg)
+
+
+-------------
+
+# Alguns testes gerando a relação
+
+Relação linear:
+
+```{r}
+set.seed(123)
+x <- rnorm(100) * 100
+tamanho_do_erro <- 50
+y <- 0.5 * x + rnorm(100) * tamanho_do_erro + 20
+
+df <- data.frame(x = x, 
+                 y = y)
+
+ggplot(df, aes(x = x, y = y)) + 
+  geom_point(colour = "darkgrey", size = 4) + 
+  theme_bw()
+
+cor(df$x, df$y, method = "pearson")
+
+# Dobro de erro em torno de uma função linear f(x)
+df$y <- 0.5 * x + rnorm(100) * tamanho_do_erro * 2 + 20
+
+ggplot(df, aes(x = x, y = y)) + 
+  geom_point(colour = "darkgrey", size = 4) + 
+  theme_bw()
+cor(df$x, df$y, method = "pearson")
+```
+
+Relação não linear
+
+```{r}
+n = 100
+df <- data.frame(x = runif(n, min= 1, max = 20))
+df$y = 100 * exp(-1.2 * df$x) #+ rnorm(n, mean = 0.05, sd = 1)
+
+ggplot(df, aes(x = x, y = y)) + 
+  geom_point(colour = "darkgrey", size = 4) + 
+  theme_bw()# + scale_y_log10() 
+
+# tente descomentando o scale_y_log10 acima e veja o que acontece
+  
+cor(df$x, df$y)
+cor(df$x, df$y, method = "spearman")
+cor(df$x, df$y, method = "kendall")
+```
+
+
+------
+
+## Dica prática
+
+Quando considerando várias variáveis, o mais prático é usar uma matriz de gráficos de dispersão: 
+
+```{r}
+alunos.tudo = read.csv("../dados//alunos-ad1.csv",
+                       header=FALSE, 
+                       comment.char="#")
+
+alunos = alunos.tudo %>% 
+  select(2, 4, 5, 8, 10, 11)
+
+names(alunos) = c("sexo", 
+                  "repositorios", 
+                  "linguagens", 
+                  "altura", 
+                  "tempo.para.ufcg", 
+                  "transporte")
+alunos = alunos %>% filter(transporte != "")
+str(alunos)
+
+ggpairs(alunos)
+```
+
+------
+

@@ -1,0 +1,124 @@
+---
+title: "Dados de convênios na PB"
+author: "Nazareno"
+date: "5 de julho de 2016"
+output:
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+    fig_width: 5
+    fig_height: 4
+---
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+theme_set(theme_bw())
+```
+
+# Os dados
+
+Repasses do Governo Federal para iniciativas em Municípios na PB. (São os dados usados em <http://github.com/nazareno/diferentonas-server>).
+
+```{r}
+iniciativas = read.csv("../dados/convenios-municipios-pb.csv")
+str(iniciativas)
+```
+
+# Valores das iniciativas
+
+Como varia o valor das iniciativas nos dados?
+
+```{r}
+summary(iniciativas$VL_GLOBAL)
+
+ggplot(iniciativas, mapping = aes(x = VL_GLOBAL)) + 
+  geom_histogram(bins = 50) + 
+  geom_rug()
+```
+
+Os dados são bastante concentrados à esquerda (aka enviesados, skewed). Outras escalas podem ajudar a ver melhor: 
+
+```{r}
+ggplot(iniciativas, mapping = aes(x = VL_GLOBAL)) + 
+  geom_histogram(bins = 20) + 
+  geom_rug(alpha = .3) + 
+  scale_x_log10()
+```
+
+Freqpoly é outra forma de ver a mesma info:
+
+```{r}
+ggplot(iniciativas, mapping = aes(x = VL_GLOBAL)) + 
+  geom_freqpoly(bins = 20) + 
+  geom_rug(alpha = .3) + 
+  scale_x_log10()
+```
+
+# Maiores cidades
+
+```{r}
+maiores = iniciativas %>% 
+  filter(NM_MUNICIPIO_PROPONENTE %in% c("JOAO PESSOA", "CAMPINA GRANDE", "PATOS", "CAJAZEIRAS", "SOUZA"))
+
+# descartar os níveis do fator que não usamos
+# do contrário ele ainda reservará espaço para todos
+# nos gráficos: 
+maiores$NM_MUNICIPIO_PROPONENTE = droplevels(maiores$NM_MUNICIPIO_PROPONENTE)
+
+ggplot(maiores, mapping = aes(y = VL_GLOBAL, 
+                              x = (NM_MUNICIPIO_PROPONENTE), 
+                              colour = NM_MUNICIPIO_PROPONENTE)) + 
+  geom_violin() + 
+  geom_point() + 
+  theme(legend.position="none") +  # Não precisamos da legenda da cor 
+  ylab("Valor das iniciativas") + 
+  coord_flip()
+```
+
+## Relação entre duas variáveis categóricas
+
+### Contagens
+
+```{r}
+ggplot(maiores, mapping = aes(x = NM_MUNICIPIO_PROPONENTE, 
+                              y = funcao.imputada)) + 
+  geom_count()
+```
+
+## Totais
+
+Aqui na realidade temos 3 variáveis: o município, a função e o total.
+
+```{r fig.width=7}
+totais = maiores %>% 
+  group_by(NM_MUNICIPIO_PROPONENTE, funcao.imputada) %>% 
+  summarise(total = sum(VL_GLOBAL))
+
+ggplot(totais, mapping = aes(x = NM_MUNICIPIO_PROPONENTE, 
+                              y = funcao.imputada, 
+                              size = total / 1e6)) + 
+  geom_point()
+```
+
+```{r fig.width=6, fig.height=12}
+ggplot(totais, mapping = aes(x = funcao.imputada, 
+                             y = total / 1e6, 
+                             fill = funcao.imputada)) + 
+  geom_bar(stat = "identity") + 
+  theme(legend.position="none") +  # Não precisamos da legenda da cor 
+  facet_grid(NM_MUNICIPIO_PROPONENTE ~ . ) + 
+  coord_flip()
+```
+
+## Duas altamente correlacionadas
+
+```{r}
+apenas.duas = iniciativas %>% 
+  filter(funcao.imputada %in% c("Urbanismo", "Saúde"))
+
+ggplot(apenas.duas, aes(x = VL_GLOBAL, y = VL_REPASSE)) + 
+  geom_point()
+```
+

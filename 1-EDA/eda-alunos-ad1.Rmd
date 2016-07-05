@@ -113,6 +113,39 @@ ggplot(alunos, mapping = aes(x = transporte,
 
 ```
 
+Médias: 
+
+```{r}
+medias = alunos %>% 
+  group_by(transporte) %>% 
+  summarise(tempo.para.ufcg = mean(tempo.para.ufcg))
+
+ggplot(alunos, mapping = aes(x = transporte, 
+                             y = tempo.para.ufcg)) + 
+  geom_boxplot() + 
+  geom_point(position = position_jitter(width = .2), 
+             alpha = .7) + 
+  geom_point(data = medias, colour = "red", size = 2) 
+
+
+```
+
+Desvio padrão
+
+```{r}
+alunos %>% 
+  group_by(transporte) %>% 
+  summarise(desvio = sd(tempo.para.ufcg))
+
+```
+
+# Uma visão geral de todas as variáveis 2 a 2 de uma vez
+
+```{r fig.width=8, fig.height=8}
+library(GGally)
+ggpairs(alunos)
+```
+
 # Um outro dataset maior
 
 Para ver a descrição desses dados: `?diamonds`.
