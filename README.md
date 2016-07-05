@@ -21,5 +21,5 @@ Creative Commons. Use à vontade!
 ## Créditos
 Nazareno Andrade e João Arthur Brunet Monteiro
 
-![logo-analytics](https://analytics-ufcg.github.io/dados-contra-corrupcao//img/logo-analytics-aleatoria.png)
-![ufcg](https://2350b1fa-a-a6606a5f-s-sites.googlegroups.com/a/computacao.ufcg.edu.br/principal/config/40%20anos%20menor.jpg)
+<img src="https://analytics-ufcg.github.io/dados-contra-corrupcao//img/logo-analytics-aleatoria.png" width=250>
+<img src="https://2350b1fa-a-a6606a5f-s-sites.googlegroups.com/a/computacao.ufcg.edu.br/principal/config/40%20anos%20menor.jpg" width=250>
