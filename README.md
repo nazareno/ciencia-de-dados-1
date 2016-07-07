@@ -16,7 +16,7 @@ install.packages(dependencias)
 ```
 
 ## Licença
-Creative Commons. Use à vontade!
+Creative Commons. Reuse à vontade!
 
 ## Créditos
 Nazareno Andrade e João Arthur Brunet Monteiro
