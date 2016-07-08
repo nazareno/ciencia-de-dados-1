@@ -11,7 +11,7 @@ Cada diretório cobre uma unidade da disciplina. A dita cuja está descrita [num
 Todo o código nesse repositório é em R.
 
 ```
-dependencias = c("dplyr", "ggplot2", "GGally")
+dependencias = c("dplyr", "ggplot2", "GGally", "readr")
 install.packages(dependencias)
 ```
 
