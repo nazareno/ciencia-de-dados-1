@@ -1,0 +1,144 @@
+---
+title: "Dicas de visualizacao"
+author: "Nazareno"
+date: "19 de julho de 2016"
+output:
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+    fig_width: 5
+    fig_height: 4
+---
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+theme_set(theme_bw())
+source("problema 1/gastos_lib.R")
+```
+
+Os dados
+
+```{r}
+gastos = ler_gastos("../dados/ano-atual.csv")
+gastos[gastos$txtDescricao == "Emissão Bilhete Aéreo", "txtDescricao"] = "PASSAGENS AÉREAS"
+gastos$txtDescricao = droplevels(gastos$txtDescricao)
+```
+
+# Gastos ao longo do tempo
+
+```{r}
+gastos.por.mes = gastos %>% 
+  filter(numMes < 6) %>% 
+  group_by(numMes, txtDescricao) %>% 
+  summarize(total = sum(vlrDocumento) / 1e6) %>% # Em milhões
+  mutate(txtDescricao = as.factor(txtDescricao))
+
+ggplot(gastos.por.mes, aes(x = numMes, y = total, colour = txtDescricao)) +
+  labs(x = "Mês de 2016", y = "Gastos em Milhões") +
+  geom_line()
+
+library(directlabels)
+ggplot(gastos.por.mes, aes(x = numMes, y = total, colour = txtDescricao)) +
+  labs(x = "Mês de 2016", y = "Gastos em Milhões") +
+  geom_line() + 
+  theme(legend.position="none") + 
+  geom_dl(aes(label = txtDescricao), method = "last.points", cex = 0.5) + 
+  xlim(1, 10)
+
+
+ggplot(gastos.por.mes, aes(x = numMes, y = total, colour = txtDescricao)) +
+  labs(x = "Mês de 2016", y = "Gastos em Milhões") +
+  geom_line() + 
+  facet_wrap(~ txtDescricao, ncol = 4) + 
+  theme(legend.position="none", strip.text.x = element_text(hjust = 0, size = 8))
+
+```
+
+E por dia? 
+
+```{r}
+gastos.por.dia = gastos %>% 
+  filter(numMes < 6) %>% 
+  mutate(dia = day(datEmissao)) %>% 
+  group_by(dia, txtDescricao) %>% 
+  summarize(total = sum(vlrDocumento) / 1e3) %>% # Em milhares
+  mutate(txtDescricao = as.factor(txtDescricao))
+
+ggplot(gastos.por.dia, aes(x = dia, y = total, colour = txtDescricao)) +
+  labs(x = "Mês de 2016", y = "Gastos em Milhões") +
+  geom_line() + 
+  facet_wrap(~ txtDescricao, ncol = 4) + 
+  theme(legend.position="none", strip.text.x = element_text(hjust = 0, size = 8))
+
+```
+
+E por dia e mês? 
+
+```{r}
+gastos.dia.mes = gastos %>% 
+  filter(numMes < 6) %>% 
+  mutate(dia = day(datEmissao)) %>% 
+  group_by(dia, numMes, txtDescricao) %>% 
+  summarize(total = sum(vlrDocumento) / 1e3) %>% # Em milhares
+  mutate(txtDescricao = as.factor(txtDescricao))
+
+ggplot(gastos.dia.mes, aes(x = dia, y = total, colour = txtDescricao, group = numMes)) +
+  labs(x = "Mês de 2016", y = "Gastos em milhares de R$") +
+  geom_line() + 
+  facet_wrap(~ txtDescricao, ncol = 4) + 
+  theme(legend.position="none", strip.text.x = element_text(hjust = 0, size = 8))
+
+ggplot(gastos.dia.mes, aes(x = dia, y = total, colour = txtDescricao, group = numMes)) +
+  labs(x = "Mês de 2016", y = "Gastos em milhares de R$") +
+  geom_line(alpha = .5) + 
+  facet_wrap(~ txtDescricao, ncol = 4) + 
+  theme(legend.position="none", strip.text.x = element_text(hjust = 0, size = 8))
+
+```
+
+
+# Ordenar sempre ajuda a leitura
+
+```{r}
+media.mensal = gastos %>% 
+  filter(numMes<6) %>%
+  group_by(sgUF, txNomeParlamentar) %>% 
+  summarize(media = mean(vlrDocumento))
+
+estados = media.mensal %>% 
+  group_by(sgUF) %>% 
+  summarise(media = mean(media))
+
+ggplot(media.mensal, mapping = aes(x = sgUF, y = media, colour = sgUF))+
+  geom_point(position = position_jitter(width = 0.25), alpha = 0.4, na.rm = TRUE)+
+  theme(legend.position="none") + 
+  geom_point(data = estados, colour = "black", size = 1.5, shape = 18) +
+  labs( y ="media de gasto mensal", x= "Estado")
+
+media.mensal = left_join(media.mensal, estados, by = c("sgUF"))
+names(media.mensal) = c("sgUF", "txNomeParlamentar", "media", "media.estado")
+
+ggplot(media.mensal, mapping = aes(x = reorder(sgUF, -media.estado), y = media, colour = sgUF))+
+  geom_point(position = position_jitter(width = 0.25), alpha = 0.4, na.rm = TRUE)+
+  theme(legend.position="none") + 
+  geom_point(data = estados, aes(x = sgUF, y = media), colour = "black", size = 1.5, shape = 18) +
+  labs( y ="media de gasto mensal", x= "Estado")
+
+
+ggplot(media.mensal, mapping = aes(x = reorder(sgUF, -media.estado), y = media, colour = sgUF))+
+  geom_violin(alpha = 0.3) + 
+  geom_point(position = position_jitter(width = 0.25), alpha = 0.4, na.rm = TRUE)+
+  theme(legend.position="none") + 
+  geom_point(data = estados, aes(x = sgUF, y = media), colour = "black", size = 1.5, shape = 18) +
+  labs( y ="media de gasto mensal", x= "Estado")
+
+```
+
+# 
+
+```{r}
+
+```
+
