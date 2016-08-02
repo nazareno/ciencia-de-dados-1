@@ -1,0 +1,172 @@
+---
+title: "Clustering"
+author: "Nazareno Andrade"
+date: "30 de março de 2016"
+output: html_document
+---
+
+```{r, message=FALSE}
+require(ggplot2, quietly = TRUE)
+require(GGally, quietly = TRUE)
+require(reshape2, quietly = TRUE)
+require(dplyr, quietly = TRUE)
+library(ggfortify)
+library(cluster)
+library(ggdendro)
+theme_set(theme_bw())
+source("github-lib.R")
+```
+
+```{r}
+dw <- load_github_wide()
+summary(dw)
+
+ggpairs(select(dw, -repository_language))
+# XML e Bluespec têm mais de 50 pushes / repositório e 
+# outras linguagens têm também números estranhos. Filtraremos.
+dw <- dw %>% 
+  filter(PushEvent < 50, IssuesEvent < 50, ForkEvent < 18)
+```
+
+As variáveis são bastante assimétricas e concentradas em pequenos valores. Transformá-las para log ajuda na visualização.
+
+```{r}
+# Escala de log 
+dw2 <- log(dw[,2:5])
+dw2$repository_language <- dw$repository_language
+ggpairs(select(dw2, -repository_language))
+
+summary(select(dw2, -repository_language))
+#dw2.scaled = scale(select(dw2, -repository_language))
+dw2.scaled = select(dw2, -repository_language) %>% 
+  mutate_each(funs(scale))
+```
+
+
+```{r}
+row.names(dw2.scaled)  = dw2$repository_language
+dists = dist(dw2.scaled, method = "euclidean")
+hc = hclust(dists, method = "ward.D")
+
+plot(hc, cex = .6)
+plot(hc, hang = -1)
+rect.hclust(hc, k=7)
+
+dw2$cluster = factor(cutree(hc, k=7))
+
+dw2.scaled$repository_language = dw2$repository_language
+dw2.scaled$cluster = factor(cutree(hc, k=7))
+
+dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster"))
+
+ggplot(dw2.long, aes(x = variable, y = value, colour = variable)) + 
+  geom_boxplot() + 
+  geom_point(alpha = 0.2, position = position_jitter(width = .2)) + 
+  facet_wrap(~ cluster) 
+
+plot(silhouette(cutree(hc, k = 4), dists))
+
+```
+
+## k-means
+
+```{r}
+toclust = select(dw2.scaled, 1:4)
+row.names(toclust) = dw2.scaled$repository_language
+dists = dist(toclust)
+
+km <- kmeans(toclust, centers = 6, nstart = 10)
+
+autoplot(km, data = dw2.scaled, size = 3)
+autoplot(km, data = dw2.scaled, label = TRUE)
+plot(silhouette(km$cluster, dists))
+
+dw2.scaled$kmcluster = km$cluster
+dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster", "kmcluster"))
+
+ggplot(dw2.long, aes(x = variable, y = value, colour = variable)) + 
+  geom_boxplot() + 
+  geom_point(alpha = 0.2, position = position_jitter(width = .2)) + 
+  facet_wrap(~ kmcluster) 
+
+table(dw2.scaled$kmcluster)
+
+plot(silhouette(dw2.scaled$kmcluster, dists))
+
+dw2.scaled[dw2.scaled$kmcluster == '1',]$repository_language
+
+dw2.scaled[dw2.scaled$kmcluster == '6',]$repository_language
+```
+
+
+--------------------
+
+# Exemplo
+
+O dataset ruspini é clássico para ilustrar agrupamento.
+
+```{r}
+str(ruspini)
+
+ggplot(ruspini, aes(x = x, y = y)) + 
+  geom_point(size = 3)
+
+summary(ruspini)
+
+rs <- data.frame((ruspini))
+rs <- data.frame(scale(ruspini))
+colMeans(rs)
+
+ggplot(rs, aes(x = x, y = y)) + 
+  geom_point(size = 3)
+
+```
+
+## Hierárquico
+
+```{r}
+dists = dist(rs, method = "euclidean")
+hc = hclust(dists, method = "ward.D")
+
+plot(hc, hang = -1, cex = 0.8)
+
+rect.hclust(hc, k=4)
+
+rs$cluster = factor(cutree(hc, k=4))
+
+ggplot(rs, aes(x = x, y = y, colour = cluster)) + 
+  geom_point(size = 3) 
+
+rs$cluster = factor(cutree(hc, k=8))
+ggplot(rs, aes(x = x, y = y, colour = cluster, label = cluster)) + 
+  geom_point(size = 2) + 
+  geom_text(hjust = -.1, vjust = 1) + 
+  xlim(0, 150)
+
+plot(silhouette(cutree(hc, k = 4), dists))
+plot(silhouette(cutree(hc, k = 6), dists))
+
+#heatmap(as.matrix(dw2[,1:4]), Colv=F, scale='none')
+#hc.data <- dendro_data(hc)
+#ggdendrogram(hc.data, rotate = TRUE) + 
+  #labs(title = "Agrupamento de Rustini")
+```
+
+## K-means
+
+```{r}
+km <- kmeans(rs, centers=4, nstart=10)
+km
+
+autoplot(km, data = rs)
+
+autoplot(km, data = rs, frame = TRUE)
+
+```
+
+## Iris
+
+```{r}
+
+```
+
