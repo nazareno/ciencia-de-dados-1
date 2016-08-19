@@ -1,0 +1,152 @@
+---
+title: "pca"
+author: "Nazareno Andrade"
+output: html_document
+---
+
+```{r, message=FALSE, warning=FALSE}
+require(ggplot2, quietly = TRUE)
+library(ggfortify, quietly = TRUE)
+# http://rpubs.com/sinhrks/basics
+require(GGally, quietly = TRUE)
+require(reshape2, quietly = TRUE)
+require(dplyr, quietly = TRUE)
+library(knitr, quietly = TRUE)
+library(cluster)
+library(ggdendro)
+theme_set(theme_bw())
+source("github-lib.R")
+```
+
+
+# Github data
+
+```{r}
+dw <- load_github_wide()
+#write.csv(dw, "github-20141.csv", row.names = FALSE)
+summary(dw)
+
+dw <- dw %>% 
+  filter(PushEvent < 50, IssuesEvent < 50, ForkEvent < 18)
+
+ggpairs(select(dw, -repository_language))
+```
+
+As variáveis são bastante assimétricas e concentradas em pequenos valores. Transformá-las para log ajuda na visualização.
+
+```{r}
+# Escala de log 
+dw2 <- log(dw[,2:5])
+dw2$repository_language <- dw$repository_language
+ggpairs(select(dw2, -repository_language))
+```
+
+----
+
+## PCA
+
+```{r}
+row.names(dw2) = dw2$repository_language
+# scale()
+pr.out = prcomp(select(dw2, -repository_language), scale = TRUE) 
+
+kable(pr.out$rotation)
+biplot(pr.out, scale = 0)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE, 
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+# Porcentagem da variância explicada: 
+plot_pve <- function(prout){
+  pr.var <- pr.out$sdev^2
+  pve <- pr.var / sum(pr.var)
+  df = data.frame(x = 1:NROW(pve), y = cumsum(pve))
+  ggplot(df, aes(x = x, y = y)) + 
+    geom_point(size = 3) + 
+    geom_line() + 
+    labs(x='Principal Component', y = 'Cumuative Proportion of Variance Explained')
+}
+
+plot_pve(pr.out)
+```
+
+## t-SNE
+
+```{r}
+require(Rtsne)
+tsne.out = Rtsne(select(dw, -repository_language), 
+                 verbose = TRUE)
+
+df = as.data.frame(tsne.out$Y)
+df$repository_language = dw$repository_language
+
+ggplot(df, aes(x = V1, y = V2, label = repository_language)) + 
+  geom_point(alpha = 0.8, size = 3, color = "tomato") 
+
+ggplot(df, aes(x = V1, y = V2, label = repository_language)) + 
+  geom_point(alpha = 0.2, size = 3, color = "tomato") + 
+  geom_text(alpha = .7, size = 4, hjust = -.2)
+
+```
+
+
+-----
+
+# Prisões nos EUA
+
+```{r}
+str(USArrests)
+row.names(USArrests)
+
+pr.out <- prcomp(USArrests, scale=TRUE)
+biplot(pr.out)
+
+autoplot(pr.out, label = TRUE)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE, 
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+
+plot_pve(pr.out)
+```
+
+
+----
+## Iris
+
+```{r}
+names(iris)
+str(iris)
+
+ggpairs(iris)
+
+pr.out <- prcomp(select(iris, -Species), scale=TRUE)
+
+autoplot(pr.out, data = iris, colour = 'Species', size = 3,  
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+plot_pve(pr.out)
+```
+
+```{r}
+require(Rtsne)
+iris2 = iris %>% filter(!duplicated(iris))
+tsne.out = Rtsne(select(iris2, -Species), 
+                 verbose = TRUE)
+
+df = as.data.frame(tsne.out$Y)
+df$Species = iris2$Species
+
+ggplot(df, aes(x = V1, y = V2, label = Species)) + 
+  geom_point(alpha = 0.8, size = 3, color = "tomato") 
+
+ggplot(df, aes(x = V1, y = V2, label = Species)) + 
+  geom_point(alpha = 0.2, size = 3, color = "tomato") + 
+  geom_text(alpha = .7, size = 4, hjust = -.2)
+
+```
