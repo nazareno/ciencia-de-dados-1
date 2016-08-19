@@ -12,6 +12,7 @@ library(dplyr)
 library(ggplot2)
 # devtools::install_github("hrbrmstr/streamgraph")
 library(streamgraph)
+library(readr)
 
 message("ler entradas")
 entradas = read_csv("../../dados/ccc-entradas-por-genero.csv") %>% 
