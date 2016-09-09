@@ -1,0 +1,123 @@
+---
+title: 'Inferência: foco em diferenças entre populações'
+author: "Nazareno Andrade"
+date: "5 de maio de 2016"
+output: 
+  html_document:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+theme_set(theme_bw())
+```
+
+Usando novamente os dados de Andryw.
+
+```{r}
+lastfm = read.csv("dados/experimento-lastfm.csv")
+lastfm = na.omit(lastfm)
+str(lastfm)
+
+lastfm %>% ggplot(aes(news)) + geom_histogram(binwidth = 10)
+lastfm %>% ggplot(aes(old)) + geom_histogram(binwidth = 10)
+
+experiment = sample_n(lastfm, 1000)
+```
+
+## ICs para médias e medianas
+
+```{r}
+# install.packages("resample")
+library(resample)
+# concorrente: boot
+
+b = bootstrap(experiment, mean(ecletic), R = 1000)
+mean.news = CI.bca(b, probs = c(.025, .975))
+mean.news
+
+b = bootstrap(experiment, median(news))
+median.news = CI.percentile(b, probs = c(.025, .975))
+median.news 
+
+b = bootstrap(experiment, mean(old))
+mean.old = CI.bca(b, probs = c(.025, .975))
+mean.old
+
+b = bootstrap(experiment, median(old))
+median.old = CI.percentile(b, probs = c(.025, .975))
+median.old 
+
+df = data.frame(rbind(mean.news, 
+                      median.news,
+                      mean.old,
+                      median.old))
+df$medida = row.names(df)
+
+df %>% 
+  ggplot(aes(x = medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2)
+```
+
+## Diferenças não pareadas
+
+```{r}
+experiment$gosta_de_pop = experiment$mediana_pop > 5
+
+# Médias dos grupos separados
+b = bootstrap(filter(experiment, gosta_de_pop), median(news))
+mean.gosta = CI.percentile(b, probs = c(.025, .975))
+b = bootstrap(filter(experiment, !gosta_de_pop), median(news))
+mean.naogosta = CI.percentile(b, probs = c(.025, .975))
+df.medias = data.frame(rbind(mean.gosta, 
+                             mean.naogosta))
+df.medias$medida = c("super pop", "menos pop")
+
+df.medias %>% 
+  ggplot(aes(x = medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2)
+
+# Agora a diferença das médias
+b.diff.means = bootstrap2(data = experiment$news, 
+                          treatment = experiment$gosta_de_pop, 
+                          median)
+
+means.diff = CI.percentile(b.diff.means, probs = c(.025, .975))
+means.diff
+
+data.frame(means.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkorange")
+```
+
+
+## Diferenças pareadas
+```{r}
+# NÃO PAREADO!
+b = bootstrap2(data = experiment$old, 
+               data2 = experiment$news, 
+               mean)
+medians.diff = CI.percentile(b, probs = c(.025, .975))
+medians.diff
+
+# PAREADO
+experiment = experiment %>% 
+  mutate(difOldNews = old - news)
+b = bootstrap(data = experiment$difOldNews, mean)
+medians.diff.paired = CI.percentile(b, probs = c(.025, .975))
+medians.diff.paired
+
+data.frame(rbind(medians.diff, medians.diff.paired)) %>% 
+  ggplot(aes(x = c("não pareado", "pareado"), ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) 
+
+```
+
+

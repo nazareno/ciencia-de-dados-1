@@ -1,0 +1,89 @@
+---
+title: "Inferência parte 1"
+author: "Nazareno"
+date: "2 de setembro de 2016"
+output: 
+  html_document:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+theme_set(theme_bw())
+```
+
+Os dados
+
+```{r}
+lastfm = read.csv("dados/experimento-lastfm.csv")
+str(lastfm)
+
+lastfm = select(lastfm, news, ecletic)
+
+lastfm %>% ggplot(aes(news)) + geom_histogram(binwidth = 10)
+lastfm %>% ggplot(aes(ecletic)) + geom_histogram(binwidth = 100)
+```
+
+```{r}
+sample(lastfm$news, 100) %>% mean()
+
+# Média de num_samples amostras com n = sample_size
+dist_original = lastfm$news
+sample_size <- 200
+num_samples <- 1000
+
+samples_means <- c()
+for(i in seq(1, num_samples)){
+  a_sample <- sample(dist_original, sample_size)
+  samples_means[i] <- median(a_sample)
+}
+ggplot(data.frame(samples_means), aes(samples_means)) + geom_histogram(binwidth = .5)
+```
+
+Bootstrapping "na mão"
+
+```{r}
+amostra = sample(lastfm$news, 500)
+
+repeticoes = 10000 # pelo menos 1000, mas mais não faz mal.
+
+exp_com_bootstrap <- function(x){
+  boot_x <- sample(x, size = NROW(x), replace = TRUE) # aqui é o bootstrap
+  return(mean(boot_x))
+}
+
+experimentos = data_frame(i = 1:repeticoes)
+experimentos = experimentos %>% 
+  rowwise() %>% 
+  mutate(media_exp = exp_com_bootstrap(amostra))
+
+ggplot(experimentos, aes(x = media_exp)) + 
+  geom_histogram(binwidth = 1, colour = "darkorange", fill = "white")
+summary(experimentos)
+
+# IC com 90%: 
+alpha = .1
+quantile(experimentos$media_exp, 
+         probs = c(.05, .95))
+ci = quantile(experimentos$media_exp, probs = c(alpha/2, 1 - alpha/2))
+
+ggplot(experimentos, aes(x = media_exp)) + 
+  geom_histogram(binwidth = 1, colour = "darkorange", fill = "white") + 
+  geom_vline(aes(xintercept = ci[[1]]), colour = "blue") + 
+  geom_vline(aes(xintercept = ci[[2]]), colour = "blue") + 
+  geom_vline(aes(xintercept = median(lastfm$news), colour = "green"))
+
+
+# IC com 95%: 
+alpha = .05
+ci = quantile(experimentos$media_exp, 
+              probs = c(alpha/2, 1 - alpha/2))
+```
+
+
