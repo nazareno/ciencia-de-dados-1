@@ -1,0 +1,126 @@
+---
+title: "regressão logistica"
+author: "Nazareno Andrade e João Arthur B. Monteiro"
+date: "27 de maio de 2015"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+theme_set(theme_bw())
+library(GGally)
+library(pscl)
+library(dplyr, warn.conflicts = FALSE)
+library(broom)
+```
+
+# Sobre a função Logit
+
+```{r}
+# Um preditor numérico
+x = -20:20
+
+# Usando uma função Logit qualquer
+py_dado_x = exp(1.2 - 1.3*x)/(1 + exp(1.2 - 1.3* x))
+data.frame(x, py_dado_x) %>% 
+  ggplot(aes(x, py_dado_x)) + 
+  geom_point()
+```
+
+# Um exemplo com o Titanic
+
+```{r}
+titanic <- read.csv("titanic3.csv")
+titanic <- select(titanic, pclass, survived, sex, age)
+titanic$pclass <- as.factor(titanic$pclass)
+titanic$survived <- as.factor(titanic$survived)
+titanic <- na.omit(titanic)
+
+ggpairs(titanic)
+
+bm <- glm(survived ~ sex, 
+          data = titanic, 
+          family = "binomial")
+tidy(bm, conf.int = TRUE)
+glance(bm)
+pR2(bm)
+
+bm <- glm(survived ~ pclass, 
+          data = titanic, 
+          family = "binomial")
+tidy(bm, conf.int = TRUE)
+glance(bm)
+pR2(bm)
+#summary(bm)
+```
+
+A interpretação é semelhante à regressão linear. Exceto que os valores dos coeficientes sem o exp fazem pouco sentido. Aqui é melhor usar a noção de odds ratio. Para isso basta exponenciar os coeficientes encontrados: 
+
+```{r}
+# Odds ratio:
+exp(bm$coefficients)
+
+tidy(bm, conf.int = TRUE) %>% 
+  mutate_each(funs(exp), estimate, conf.low, conf.high)
+```
+
+## Visualizando
+
+```{r}
+bm <- glm(survived ~ age, 
+          data = titanic, 
+          family = "binomial")
+tidy(bm, conf.int = TRUE)
+glance(bm)
+pR2(bm)
+
+m = titanic %>% expand(age)
+predito = data.frame(age = m$age, 
+                     survived = predict(bm, newdata = m, type = "response"))
+
+ggplot(predito, aes(age, survived)) + 
+  #geom_jitter(position = position_jitter(width = .5, height = .1), alpha =.2) + 
+  geom_line(size = 1) 
+```
+
+
+## Multivariada:
+
+```{r}
+bm <- glm(survived ~ pclass + sex + age, 
+          data = titanic, 
+          family = "binomial")
+
+tidy(bm, conf.int = TRUE) %>% 
+  mutate_each(funs(exp), estimate, conf.low, conf.high)
+pR2(bm)
+```
+
+## Fazendo previsões
+
+```{r}
+library(tidyr)
+library(modelr) # devtools::install_github("hadley/modelr")
+
+m = titanic %>% expand(pclass, sex, age)
+m$survived = predict(bm, newdata = m, type = "response")
+
+ggplot(m, aes(x = age, y = survived, colour = pclass)) + 
+  geom_line() +  
+  facet_grid(.~sex) 
+
+```
+
+
+
+```{r}
+predictions <- predict(bm, type = "response") > .5
+true_survivals <- titanic$survived == 1
+
+table(predictions, true_survivals)
+
+require(vcd)
+mosaic(table(predictions, true_survivals))
+
+erro <- sum((predictions != true_survivals)) / NROW(predictions)
+```

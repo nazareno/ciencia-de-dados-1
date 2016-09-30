@@ -1,0 +1,403 @@
+---
+title: "regressao linear multivariada"
+author: "Nazareno Andrade"
+output: 
+  html_document:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+
+---
+
+```{r}
+library(ggplot2)
+theme_set(theme_bw())
+library(GGally)
+library(ggfortify)
+library(broom)
+require(ISLR)
+library(dplyr)
+library(tidyr)
+library(modelr) # devtools::install_github("hadley/modelr")
+
+```
+
+# Os dados
+
+```{r}
+advertising = read.csv("data/Advertising.csv", row.names=1)
+
+ggpairs(advertising, alpha = 0.7)
+```
+
+# Uma regressão linear simples 
+
+### Modelo da relação entre gasto com TV e vendas. 
+
+Linear direto com os dados.
+
+```{r}
+tv.model = lm(Sales ~ TV, data = advertising)
+
+advertising2 = advertising %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+advertising2 %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x dados
+advertising2 %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = resid), size = 2) +
+  geom_ref_line(h = 0, colour = "grey80")
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+```
+
+Transformações.
+
+```{r}
+advertising$TVsqrt = sqrt(advertising$TV)
+tv.model = lm(Sales ~ TVsqrt, data = advertising)
+
+advertising2 = advertising %>% 
+  #data_grid(cond) %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+advertising2 %>% 
+  ggplot(aes(x = TVsqrt)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+advertising2 %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x dados
+advertising2 %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = resid), size = 2) +
+  geom_ref_line(h = 0, colour = "grey80")
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+# Depois
+autoplot(tv.model)
+```
+
+Os resíduos ainda dão sinal de não linearidade. Voltamos para falar de diagnóstico e consertos mais na frente.
+
+# Colocando mais variáveis como preditoras
+
+```{r}
+radio.model = lm(Sales ~ Radio, data = advertising)
+
+advertising2 = advertising %>% 
+  add_predictions(radio.model) %>% 
+  add_residuals(radio.model)
+
+# Modelo x dados
+advertising2 %>% 
+  ggplot(aes(x = Radio)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+tidy(radio.model, conf.int = TRUE)
+glance(radio.model, conf.int = TRUE)
+```
+
+```{r}
+np.model = lm(Sales ~ Newspaper, data = advertising)
+tidy(np.model, conf.int = TRUE)
+glance(np.model, conf.int = TRUE)
+```
+
+Considerando os preditores ao mesmo tempo. Isso é diferente de considerá-los separadamente:
+
+```{r}
+multi = lm(Sales ~ TVsqrt + Newspaper + Radio, data = advertising)
+tidy(multi, conf.int = TRUE)
+glance(multi)
+```
+
+Repare na diferença nas significâncias dos preditores para os modelos univariados e para o multivariado.
+
+Algumas perguntas que queremos responder: 
+
+* O modelo considerando esses preditores é útil em explicar a resposta?
+* Todos os preditores contribuem para explicar a resposta, ou apenas algum?
+* Quão bem ajustado aos dados o modelo está?
+
+# Interações não aditivas
+
+# TODO como modelar interações quando espero que o efeito tenha sinais diferentes?
+
+```{r}
+multi = lm(Sales ~ TV + Radio + Newspaper + Radio*TV, data = advertising)
+tidy(multi, conf.int = TRUE)
+glance(multi)
+
+autoplot(multi)
+
+predict(multi, 
+        data.frame(Radio = 10e3, TV = 20e3, Newspaper = 0), 
+        interval = "predict")
+```
+
+# Preditores categóricos 
+
+```{r}
+mario <- read.csv("marioKart.txt", header = TRUE, sep = "\t")
+str(mario)
+
+ggpairs(select(mario, totalPr, cond, startPr, nBids))
+mario <- filter(mario, totalPr < 100)
+
+mlm <- lm(totalPr ~ cond, data = mario)
+summary(mlm)
+
+ggplot(mario, aes(x = cond, y = totalPr, group = 1)) + 
+  geom_violin(aes(group = cond), alpha = 0.2) + 
+  geom_point(position = position_jitter(width = 0.1), alpha = 0.6) + 
+  geom_smooth(method = "lm", se = F)
+```
+
+Ambas juntas
+
+```{r}
+mlm <- lm(totalPr ~ startPr + cond, data = mario)
+tidy(mlm, conf.int = TRUE)
+glance(mlm)
+
+library(tidyr)
+library(modelr) # devtools::install_github("hadley/modelr")
+
+m = mario %>% expand(startPr, cond)
+grid = m %>% 
+  add_predictions(totalPr = mlm)
+
+ggplot(mario, aes(startPr, totalPr)) + 
+  geom_point() + 
+  facet_wrap(~cond) + 
+  geom_line(data = grid, colour = "red", size = 1) 
+
+autoplot(mlm)
+```
+
+```{r}
+mlm <- lm(totalPr ~ shipSp, data = mario)
+tidy(mlm, conf.int = TRUE)
+glance(mlm)
+
+m = mario %>% expand(startPr, cond)
+grid = m %>% 
+  add_predictions(totalPr = mlm)
+
+ggplot(mario, aes(startPr, totalPr)) + 
+  geom_point() + 
+  facet_wrap(~cond) + 
+  geom_line(data = grid, colour = "red", size = 1) 
+
+autoplot(mlm)
+```
+
+
+# Problemas possíveis
+
+1. Non-linearity of the response-predictor relationships. 
+2. Correlation of error terms.
+3. Non-constant variance of error terms.
+4. Outliers.
+5. High-leverage points.
+6. Collinearity.
+
+## Não linearidade na response-predictor relationship
+
+### Caso 1
+
+```{r}
+auto = select(Auto, mpg, horsepower)
+ggpairs(auto)
+
+automodel = lm(mpg ~ horsepower, data = auto)
+
+tidy(automodel, conf.int = TRUE)
+glance(automodel)
+
+grid = auto %>% 
+  add_predictions(model = automodel)
+
+ggplot(grid, aes(horsepower)) + 
+  geom_point(aes(y = mpg), alpha = .8) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(automodel)
+```
+
+Uma solução possível é tentar polinômios de grau mais alto, que têm curva.
+
+```{r}
+ggpairs(auto)
+automodel = lm(mpg ~ horsepower + I(horsepower^2), data = auto)
+
+grid = auto %>% 
+  mutate(horsepower2 = horsepower^2) %>% 
+  add_predictions(model = automodel)
+
+ggplot(grid, aes(horsepower)) + 
+  geom_point(aes(y = mpg), alpha = .8) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(automodel)
+
+tidy(automodel)
+glance(automodel)
+```
+
+```{r}
+ggplot(grid, aes(y = horsepower, x = mpg)) + 
+  geom_point(alpha = .8) + 
+```
+
+### Caso 2:
+
+(Na minha experiência, esse é mais comum)
+
+```{r}
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = .3)
+
+# Bonus: geom_hex!
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_hex()
+
+caratmodel = lm(price ~ carat, data = diamonds)
+
+grid = diamonds %>% 
+  add_predictions(model = caratmodel)
+
+ggplot(grid, aes(x = carat)) + 
+  geom_hex(aes(y = price)) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(caratmodel)
+```
+
+Solução: Transformar as variáveis para que elas passem a ter uma relação mais linear.
+
+```{r}
+ggplot(diamonds, aes(x = log(carat), y = log(price))) +
+  geom_point(alpha = .2)
+
+diamonds2 = data.frame(carat = log(diamonds$carat), 
+                       price = log(diamonds$price))
+
+caratmodel = lm(price ~ carat, data = diamonds2)
+
+grid = diamonds2 %>% 
+  add_predictions(model = caratmodel)
+
+ggplot(grid, aes(x = carat)) + 
+  geom_hex(aes(y = price)) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(caratmodel)
+```
+
+As transformações mais comuns a considerar são log(x), sqrt(x), exp(x) e x^2.
+
+##  Non-constant variance of error terms
+
+Transformações ou weighted least squares. 
+
+```{r}
+advertising = read.csv("data/Advertising.csv", row.names=1)
+ggpairs(advertising)
+
+tv.model = lm(Sales ~ TV, data = advertising)
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+autoplot(tv.model)
+
+ggplot(advertising, aes(TV, Sales)) + 
+  geom_point()
+
+ggplot(advertising, aes(log(TV), log(Sales))) + 
+  geom_point()
+
+tv.model2 = lm(log(Sales) ~ log(TV), data = advertising)
+
+grid = advertising %>% 
+  add_predictions(model = tv.model2)
+
+ggplot(grid, aes(x = TV)) + 
+  geom_point(aes(y = Sales)) + 
+  geom_line(aes(y = exp(pred)), colour = "red", size = 1) 
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+autoplot(tv.model2)
+
+names(advertising)
+advertising2 = advertising %>% 
+  mutate(Sales = log(Sales), TV = log(TV))
+ggpairs(advertising2)
+```
+
+
+## Outliers e High-leverage points
+
+![outliers](others-figs//3.12.pdf)
+
+![leverage](others-figs//3.13.pdf)
+
+Uma boa: http://setosa.io/ev/ordinary-least-squares-regression/
+
+No plot de studentized residuals, pontos com resíduos normalizados maiores que 3 são suspeitos.
+
+Para leverage, o adequado é olhar pontos com leverage muito acima dos demais, ou maior que (p + 1)/n. (p sendo o número de preditores.)
+
+## Colinearity
+
+![colinearidade](others-figs//3.14.pdf)
+
+Recomendação: VIF < 5 ou VIF < 10
+
+```{r}
+library(car)
+vif(multi)
+vif(mlm)
+```
+
+```{r}
+credit <- read.csv("data/Credit.csv", row.names=1)
+names(credit)
+
+credit.model = lm(Balance ~ Age + Student + Married, data = credit)
+
+credit.model = lm(Balance ~ Age + Limit, data = credit)
+
+tidy(credit.model, conf.int = TRUE)
+glance(credit.model)
+
+credit.model2 = lm(Balance ~ Age + Rating + Limit, data = credit)
+tidy(credit.model2, conf.int = TRUE)
+
+vif(credit.model2)
+cor(credit %>% select(Age, Rating, Limit))
+```
+

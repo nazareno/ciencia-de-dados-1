@@ -1,0 +1,305 @@
+---
+title: "regressão linear"
+author: "Nazareno Andrade e João Arthur B. Monteiro"
+output: 
+  html_document:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+
+---
+
+```{r}
+library(ggplot2)
+theme_set(theme_bw())
+library(dplyr)
+library(broom)
+
+require(openintro)
+data(countyComplete)
+
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4)
+
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_hex()
+
+
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4) + geom_smooth(method = "lm", se = FALSE)
+
+
+```
+
+```{r}
+mod <- lm(poverty ~ hs_grad, data = countyComplete)
+# R básico:
+summary(mod)
+confint(mod)
+
+# broom: 
+tidy(mod, conf.int = TRUE)
+#glance(mod)
+
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4) + 
+  geom_line(aes(y = predict(mod, countyComplete)), colour = "red")
+
+ggplot(mod, aes(hs_grad, .resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
+
+```
+
+
+## Algumas possíveis relações
+
+```{r}
+## plot 1
+x1 = rnorm(100)
+y1 = rnorm(100)
+
+## plot 2
+x2 <- rnorm(100)
+y2 = -2-2*x2 + rnorm(100, 0, .5)
+x2[1] <- 3; y2[1] <- .2
+
+## plot 3
+x3 <- rnorm(100)
+y3 = -2+2*(x3+1)^2 + rnorm(100, 0, 2)
+
+##plot 4
+x4 <- abs(rnorm(100, mean=2))
+y4 = -2+4*x4 + rnorm(100, 0, x4*2)
+
+## plot all at once
+dat1 <- data.frame(x=c(x1, x2, x3, x4), y=c(y1, y2, y3, y4), graph=rep(1:4, each=100))
+qplot(x, y, data=dat1) + facet_wrap(~graph, scales="free")
+```
+
+## Exemplo de tendência nos resíduos. Isso torna o modelo tendencioso em quase todas as regiões de x. 
+
+```{r}
+mnl <- lm(y3 ~ x3)
+
+predicted3 <- predict(mnl)
+
+ggplot(data.frame(x = x3, y = y3, p = predicted3), aes(x = x, y = y)) + 
+  geom_point() + 
+  geom_line(aes(y = p))
+
+ggplot(mnl, aes(y3, .resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
+```
+
+
+## R^2 é a variância da variável de saída explicada pelo modelo
+
+```{r}
+ml2 <- lm(y2 ~ x2)
+
+# variância de y
+var.y2 <- sum((y2 - mean(y2))^2)
+# variância dos resíduos do modelo
+var.residuals <- sum(ml2$residuals^2)
+
+#calculando e conferindo o R^2
+(var.y2 - var.residuals)/var.y2
+summary(ml2)$r.squared
+
+glance(ml2)
+```
+
+## Com bootstrap 
+
+### Versão 1
+
+```{r}
+library(purrr)
+boot <- bootstrap(mtcars, 100)
+
+models <- map(boot$strap, ~ lm(mpg ~ wt, data = .))
+tidied <- map_df(models, broom::tidy, .id = "id")
+
+hist(subset(tidied, term == "wt")$estimate)
+```
+
+
+### Versão 2
+```{r}
+library(boot)
+library(ISLR) # dados
+attach(Auto)
+```
+
+Usando o pacote `boot` é preciso criar a função que será usada no bootstrap:
+
+```{r}
+boot.fn <- function(data, index) {
+  return(coef(lm(mpg ~ horsepower, data=Auto, subset = index)))
+}
+boot.fn(Auto, 1:392)
+```
+
+```{r}
+regressao.b = boot(Auto, boot.fn, 1000)
+plot(regressao.b, index=1) # intercept 
+plot(regressao.b, index=2) # horsepower
+boot.ci(regressao.b, type = "bca", index = 1)
+boot.ci(regressao.b, type = "bca", index = 2)
+```
+
+### Opção com outro pacote
+
+```{r}
+library("simpleboot")
+modelo.simples = lm(mpg ~ horsepower, data = Auto)
+modelo.boot = lm.boot(modelo.simples, R = 1000)
+summary(modelo.boot)
+perc(modelo.boot, c(.025, .975))
+
+# TODO : resampling de resíduos
+#lboot2 <- lm.boot(modelo.simples, R = 1000, rows = FALSE)
+#summary(lboot2)
+```
+
+# Diagnóstico dos modelos
+
+http://stats.stackexchange.com/questions/58141/interpreting-plot-lm
+
+
+```{r}
+library(ggfortify)
+summary(mod)
+autoplot(mod, label.size = 3, alpha = 0.4)
+# bem mais opções: http://rpubs.com/sinhrks/plot_lm 
+```
+
+
+-------------
+
+
+# Preditor categórico
+
+```{r}
+mario <- read.csv("marioKart.txt", header = TRUE, sep = "\t")
+names(mario)
+
+ggpairs(select(mario, totalPr, cond, startPr, nBids, stockPhoto))
+mario <- filter(mario, totalPr < 100)
+
+mlm <- lm(totalPr ~ cond, data = mario)
+summary(mlm)
+
+ggplot(mario, aes(x = cond, y = totalPr, group = 1)) + 
+  geom_violin(aes(group = cond), alpha = 0.2) + 
+  geom_point(position = position_jitter(width = 0.1)) + 
+  geom_smooth(method = "lm", se = F)
+
+```
+
+```{r}
+mario %>% 
+  ggplot() + 
+  geom_point(aes(x = startPr, y = totalPr), size = 2, alpha = .7)
+
+mario %>% 
+  ggplot(aes(x = cond, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1)) 
+
+mario %>% 
+  ggplot() + 
+  geom_point(aes(x = nBids, y = totalPr), size = 2, alpha = .7)
+```
+
+```{r}
+mlm <- lm(totalPr ~ cond + startPr, data = mario)
+
+# devtools::install_github("hadley/modelr")
+library(modelr)
+mario = mario %>% 
+  #data_grid(cond) %>% 
+  add_predictions(mlm)
+
+mario %>% 
+  ggplot(aes(x = cond, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1))  + 
+  geom_point(aes(y = pred), size = 4, colour = "red")
+
+mario %>% 
+  ggplot(aes(x = startPr, y = totalPr)) + 
+  geom_line(aes(y = pred), size = 2, colour = "red") + 
+  geom_point(aes(y = totalPr)) + 
+  facet_grid(. ~ cond)
+
+
+
+mario = mario %>% 
+  #data_grid(cond) %>% 
+  add_residuals(mlm)
+
+ggplot(mario, aes(resid)) + 
+  geom_freqpoly(binwidth = 2)
+
+ggplot(mario, aes(cond, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+ggplot(mario, aes(startPr, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+ggplot(mario, aes(totalPr, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+
+ggplot(mario, aes(nBids, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+ggplot(mario, aes(x = totalPr)) + 
+  geom_line(aes(y = pred), colour = "green") + 
+  geom_point(aes(y = totalPr), alpha = 0.6)
+  
+
+```
+
+
+## Sobre múltiplas variáveis juntas num modelo
+
+```{r}
+mlm <- lm(totalPr ~ stockPhoto, data = mario)
+tidy(mlm, conf.int = T)
+glance(mlm)
+
+mario %>% 
+  ggplot(aes(x = stockPhoto, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1))  + 
+  geom_point(aes(y = pred), size = 4, colour = "red")
+
+
+mlm <- lm(totalPr ~ stockPhoto + cond, data = mario)
+tidy(mlm, conf.int = T)
+glance(mlm)
+```
+
+## Variáveis numéricas e categóricas juntas
+
+```{r}
+mlm <- lm(totalPr ~ startPr + cond, data = mario)
+summary(mlm)
+```
+
+### Sobre causalidade
+
+```{r}
+mlm <- lm(totalPr ~ nBids + cond, data = mario)
+summary(mlm)
+```
+
