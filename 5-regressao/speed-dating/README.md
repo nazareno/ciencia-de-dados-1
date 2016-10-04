@@ -33,7 +33,11 @@ O que causa atração à primeira vista? E como isso varia para diferentes sexos
 - shar : quanto p1 achou que compartilha interesses e hobbies com p2
 - like : no geral, quanto p1 gostou de p2?
 - prob : que probabiliade p1 acha que p2 tem de querer se encontrar novamente com p- (escala 1-10)
-- met : p1 já havia encontrado com p2 antes?
+- attr3_s : quanto p1 acha que é atraente
+- sinc3_s : quanto p1 acha que é sincero
+- intel3_s : quanto p1 acha que é inteligente
+- fun3_s : quanto p1 acha que é divertido
+- amb3_s : quanto p1 acha que é ambicioso
 
 ### O formulário
 
