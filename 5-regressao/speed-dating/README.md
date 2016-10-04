@@ -21,7 +21,7 @@ O que causa atração à primeira vista? E como isso varia para diferentes sexos
 - age_o : idade de p2
 - age : idade de p1
 - field : campo de estudo de p1
-- race : raça de p1
+- race : raça de p1. O código é Black/African American=1; European/Caucasian-American=2; Latino/Hispanic American=3; Asian/Pacific Islander/Asian-American=4;	Native American=5; 	Other=6
 - from : de onde p1 é
 - career : que carreira p1 quer seguir
 - sports, tvsports, exercise, dining, museums, art, hiking, gaming, clubbing, reading, tv, theater, movies, concerts, music, shopping, yoga : De 1 a 10, quão interessado p1 é em cada uma dessas atividades.  
