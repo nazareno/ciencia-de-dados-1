@@ -34,3 +34,8 @@ O que causa atração à primeira vista? E como isso varia para diferentes sexos
 - like : no geral, quanto p1 gostou de p2?
 - prob : que probabiliade p1 acha que p2 tem de querer se encontrar novamente com p- (escala 1-10)
 - met : p1 já havia encontrado com p2 antes?
+
+### O formulário
+
+Boa parte dos dados vem daqui: Inline-style:
+![formulário preenchido pelos usuários](form.png "O formulário")
