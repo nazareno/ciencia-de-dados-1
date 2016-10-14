@@ -5,7 +5,8 @@ date: "27 de maio de 2015"
 output: html_document
 ---
 
-```{r}
+```{r include=FALSE, warning=FALSE}
+library(readr)
 library(ggplot2)
 theme_set(theme_bw())
 library(GGally)
@@ -113,7 +114,7 @@ pR2(bm)
 
 ```{r}
 x = read_csv("data/gender_prefs_speeddating.csv")
-gendermodel = glm(gender ~ sport, 
+gendermodel = glm(gender ~ sports, 
                   data = select(x, -iid), 
                   family = "binomial")
 tidy(gendermodel, conf.int = TRUE, exponentiate = TRUE)

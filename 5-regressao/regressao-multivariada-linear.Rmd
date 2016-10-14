@@ -20,7 +20,6 @@ require(ISLR)
 library(dplyr)
 library(tidyr)
 library(modelr) # devtools::install_github("hadley/modelr")
-
 ```
 
 # Os dados
@@ -180,34 +179,31 @@ mlm <- lm(totalPr ~ startPr + cond, data = mario)
 tidy(mlm, conf.int = TRUE)
 glance(mlm)
 
-library(tidyr)
-library(modelr) # devtools::install_github("hadley/modelr")
-
 m = mario %>% expand(startPr, cond)
 grid = m %>% 
-  add_predictions(totalPr = mlm)
+  add_predictions(model = mlm)
 
-ggplot(mario, aes(startPr, totalPr)) + 
+ggplot(grid, aes(startPr, totalPr)) + 
   geom_point() + 
   facet_wrap(~cond) + 
-  geom_line(data = grid, colour = "red", size = 1) 
+  geom_line(aes(y = .pred), colour = "red", size = 1) 
 
 autoplot(mlm)
 ```
 
 ```{r}
-mlm <- lm(totalPr ~ shipSp, data = mario)
+mlm <- lm(totalPr ~ cond, data = mario)
 tidy(mlm, conf.int = TRUE)
 glance(mlm)
 
 m = mario %>% expand(startPr, cond)
 grid = m %>% 
-  add_predictions(totalPr = mlm)
+  add_predictions(model = mlm)
 
-ggplot(mario, aes(startPr, totalPr)) + 
+ggplot(data = mario, aes(startPr, totalPr)) + 
   geom_point() + 
   facet_wrap(~cond) + 
-  geom_line(data = grid, colour = "red", size = 1) 
+  geom_line(data = grid, aes(y = pred), colour = "red", size = 1) 
 
 autoplot(mlm)
 ```
