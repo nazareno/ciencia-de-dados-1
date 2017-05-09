@@ -1,74 +1,109 @@
 ---
 title: "Dados dos alunos de Ad1"
 author: "Nazareno"
-date: "1 de julho de 2016"
 output:
-  html_document:
+  html_notebook:
     theme: readable
     toc: true
     toc_float: true
     fig_width: 5
     fig_height: 4
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r}
-library(dplyr, warn.conflicts = FALSE)
-library(ggplot2)
-theme_set(theme_bw())
+library(tidyverse, warn.conflicts = FALSE)
+theme_set(theme_bw()) # Eu prefiro o theme_bw() mas você pode explorar outros
 ```
 
 # Uma vista em alguns dados dos alunos de AD1
 
 Carregando os dados. 
-(Lembre do Import Dataset)
+(Existe também o Import Dataset na aba Environment do RStudio)
 
 ```{r}
-alunos.tudo = read.csv("../dados/alunos-ad1.csv",
-                       header=FALSE, 
-                       comment.char="#")
+alunos_tudo = read_csv("../dados/alunos-ad1.csv")
+# você pode especificar os tipos das colunas, por exemplo: 
+alunos_tudo = read_csv("../dados/alunos-ad1.csv", 
+                       col_types = "ccciiiiiiicc??c")
 
-#alunos.tudo %>% View()
-# mesmo que View(alunos)
-
-alunos.tudo %>% 
-  head() %>% 
-  select(2, 3)
-# select(head(alunos), 2, 3)
-
-alunos = alunos.tudo %>% 
-  select(2, 4, 5, 8, 10, 11)
-
-names(alunos) = c("sexo", 
-                  "repositorios", 
-                  "linguagens", 
-                  "altura", 
-                  "tempo.para.ufcg", 
-                  "transporte")
-
-alunos = alunos %>% filter(transporte != "")
+glimpse(alunos_tudo)
+# interativo, você pode fazer: 
+# alunos_tudo %>% View()
+# que é o mesmo que View(alunos)
 ```
 
-## Barras e histogramas para contar frequências
+Os nomes de variável vem do typeform e não estão ajudando. Vamos renomeá-las.
+
+```{r}
+names(alunos_tudo)
+
+alunos = alunos_tudo %>% 
+  select(sexo = `Você é...`,  # select pode escolher e/ou renomear variáveis
+         repositorios = `Em quantos repositórios no github (seus ou de outras pessoas) você contribuiu nos últimos 2 anos?`, 
+         linguagens = `Em quantas linguagens de programação você sabe programar?`, 
+         altura = `Qual a sua altura em centímetros?`, 
+         tempo_para_ufcg = `Quanto tempo você demora para se deslocar de casa à UFCG? (em minutos)`, 
+         transporte = `Você geralmente vai de casa para a UFCG:`, 
+         gosta_de_forms = `O quanto você gosta de formulários online? (Obrigado por ter respondido este!)`)
+```
+
+## Contando frequências
+
+Variáveis categóricas
 
 ```{r}
 ggplot(alunos) + 
   geom_bar(mapping = aes(x = linguagens))
 
 ggplot(alunos) + 
-  geom_histogram(mapping = aes(x = repositorios), 
-                 fill = "white", 
-                 colour = "black",
-                 breaks = c(0, 5, 10, 15, 20, 25)) 
-
-ggplot(alunos) + 
-  geom_histogram(mapping = aes(x = repositorios), 
-                 fill = "white", 
-                 colour = "black",
-                 breaks = c(0, 3, 6, 9, 12, 15, 18, 21, 24)) 
-
-ggplot(alunos) + 
   geom_bar(mapping = aes(x = sexo) )
 ```
+
+Variáveis numéricas
+
+```{r}
+ggplot(alunos) + 
+  geom_histogram(mapping = aes(x = repositorios), 
+                 fill = "orange2", 
+                 colour = "black") 
+
+# bins são uma parte muito importante
+
+```
+
+Para variáveis contínuas, a função de densidade pode ser usada. `geom_freqpoly` também é mais legível quando temos muitos dados.
+
+```{r}
+ggplot(alunos) + 
+  geom_histogram(mapping = aes(x = altura), 
+                 breaks = seq(150, 190, 5), 
+                 fill = "lightyellow", 
+                 color = "black") 
+
+ggplot(alunos) + 
+  geom_freqpoly(mapping = aes(x = altura), 
+                bins = 8) 
+
+ggplot(alunos) + 
+  geom_density(mapping = aes(x = altura)) 
+```
+
+Mais info
+
+```{r}
+ggplot(alunos, mapping = aes(x = altura)) + 
+  geom_freqpoly(bins = 8) + 
+  geom_rug(colour = "red")
+
+
+ggplot(alunos, mapping = aes(x = altura)) + 
+  geom_freqpoly(bins = 8) + 
+  geom_rug(colour = "red")
+
+```
+
 
 ## Duas variáveis numéricas
 
