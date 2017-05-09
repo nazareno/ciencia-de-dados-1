@@ -1,4 +1,6 @@
 dados/ano-atual.csv
+.DS_Store
+*/.DS_Store
 
 # History files
 .Rhistory
