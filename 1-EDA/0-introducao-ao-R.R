@@ -1,5 +1,5 @@
 library(tidyverse) # carrega os pacotes ggplot2, readr, tidyr e dplyr
-# no linux pode ser que você precise instalar a 
+# no linux pode ser que você precise instalar a libcurl4-openssl-dev
 
 # tente usar sempre read_csv em vez de read.csv
 vendas = read_csv(file = "../dados/vendas_artistas_br.csv")
@@ -21,6 +21,7 @@ ggplot(vendas, aes(x = Artista, # Artista é o nome de uma variável dentro de v
 # mutate - cria/altera variáveis
 # summarise - calcula algo (média, max, min, ...) a partir de várias linhas
 # group_by - tal qual o do SQL
+# arrange é um sexto verbo que pode ser útil. ordena linhas.
 
 vendas_com_mpb = vendas %>% 
   filter(`Vendas estimadas (milhões)` < 100, # filter faz um AND nas condições
