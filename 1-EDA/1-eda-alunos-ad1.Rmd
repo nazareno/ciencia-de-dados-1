@@ -13,7 +13,7 @@ editor_options:
 ---
 
 ```{r}
-library(tidyverse, warn.conflicts = FALSE)
+library(tidyverse, warn.conflicts = FALSE, )
 theme_set(theme_bw()) # Eu prefiro o theme_bw() mas você pode explorar outros
 ```
 
@@ -21,6 +21,8 @@ theme_set(theme_bw()) # Eu prefiro o theme_bw() mas você pode explorar outros
 
 Carregando os dados. 
 (Existe também o Import Dataset na aba Environment do RStudio)
+
+Repare nos diferentes tipos de dados: categóricos, numéricos, ordinais. 
 
 ```{r}
 alunos_tudo = read_csv("../dados/alunos-ad1.csv")
@@ -47,29 +49,56 @@ alunos = alunos_tudo %>%
          tempo_para_ufcg = `Quanto tempo você demora para se deslocar de casa à UFCG? (em minutos)`, 
          transporte = `Você geralmente vai de casa para a UFCG:`, 
          gosta_de_forms = `O quanto você gosta de formulários online? (Obrigado por ter respondido este!)`)
+
+names(alunos)
 ```
 
 ## Contando frequências
 
-Variáveis categóricas
+### Variáveis categóricas
 
 ```{r}
 ggplot(alunos) + 
-  geom_bar(mapping = aes(x = linguagens))
+  geom_bar(mapping = aes(x = sexo)) 
 
 ggplot(alunos) + 
-  geom_bar(mapping = aes(x = sexo) )
+  geom_bar(mapping = aes(x = transporte))
+
+alunos %>% 
+  group_by(transporte) %>% 
+  summarise(quantos = n()) %>% 
+  ggplot() + 
+  geom_col(mapping = aes(x = reorder(transporte, -quantos), y = quantos)) 
+
 ```
 
-Variáveis numéricas
+### Variáveis numéricas
+
+Enumerando todos os valores possíveis:
 
 ```{r}
-ggplot(alunos) + 
-  geom_histogram(mapping = aes(x = repositorios), 
+ggplot(data = alunos, mapping = aes(x = linguagens)) + 
+  geom_bar()
+```
+
+Por faixas de valores. Bins = faixas. Binwidth = largura da faixa.
+
+```{r}
+ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) + 
+  geom_histogram(binwidth = 10, 
                  fill = "orange2", 
                  colour = "black") 
 
 # bins são uma parte muito importante
+
+ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) + 
+  geom_freqpoly(binwidth = 10, 
+                 fill = "orange2", 
+                 colour = "black") 
+
+ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) + 
+  geom_density(fill = "orange2", 
+                 colour = "black") 
 
 ```
 
@@ -93,8 +122,8 @@ ggplot(alunos) +
 Mais info
 
 ```{r}
-ggplot(alunos, mapping = aes(x = altura)) + 
-  geom_freqpoly(bins = 8) + 
+ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) + 
+  geom_histogram(binwidth = 10) + 
   geom_rug(colour = "red")
 
 
@@ -104,22 +133,55 @@ ggplot(alunos, mapping = aes(x = altura)) +
 
 ```
 
+```{r}
+ggplot(alunos, aes(x = transporte, y = tempo_para_ufcg)) + 
+  geom_jitter(width = .1, height = 0, alpha = .6)
+```
+
+```{r}
+ggplot(alunos, aes(fill = transporte, x = tempo_para_ufcg)) + 
+  geom_histogram(binwidth = 10) + 
+  facet_grid(transporte ~ .)
+
+```
+
+
+```{r}
+alunos %>%
+  filter(altura > 0) %>% 
+  ggplot(mapping = aes(x = sexo, 
+                       y = altura)) +
+  # geom_boxplot() + 
+  geom_violin() + 
+  geom_jitter(width = .1,
+              height = 0,
+              alpha = 0.7) 
+
+```
 
 ## Duas variáveis numéricas
 
 ```{r}
 ggplot(data = alunos) +
   geom_point(mapping = aes(x = linguagens, 
-                           y = repositorios, 
-                           colour = sexo), 
+                           y = repositorios), 
              alpha = 0.7) 
 
-ggplot(data = alunos) +
+alunos %>%
+  filter(altura > 0) %>% 
+  ggplot() +
   geom_point(mapping = aes(x = altura, 
                            y = linguagens), 
              alpha = 0.7) 
 
+alunos %>%
+  ggplot() +
+  geom_point(mapping = aes(x = tempo_para_ufcg, 
+                           y = repositorios), 
+             alpha = 0.7) 
+
 ```
+
 
 ## Uma numérica e uma categórica
 
@@ -153,7 +215,7 @@ Médias:
 ```{r}
 medias = alunos %>% 
   group_by(transporte) %>% 
-  summarise(tempo.para.ufcg = mean(tempo.para.ufcg))
+  summarise(tempo_para_ufcg = mean(tempo.para.ufcg))
 
 ggplot(alunos, mapping = aes(x = transporte, 
                              y = tempo.para.ufcg)) + 
