@@ -26,6 +26,7 @@ Repare nos diferentes tipos de dados: categóricos, numéricos, ordinais.
 
 ```{r}
 alunos_tudo = read_csv("../dados/alunos-ad1.csv")
+
 # você pode especificar os tipos das colunas, por exemplo: 
 alunos_tudo = read_csv("../dados/alunos-ad1.csv", 
                        col_types = "ccciiiiiiicc??c")
@@ -105,17 +106,23 @@ ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) +
 Para variáveis contínuas, a função de densidade pode ser usada. `geom_freqpoly` também é mais legível quando temos muitos dados.
 
 ```{r}
-ggplot(alunos) + 
+alunos %>% 
+  filter(altura > 3) %>%  
+  ggplot() + 
   geom_histogram(mapping = aes(x = altura), 
                  breaks = seq(150, 190, 5), 
                  fill = "lightyellow", 
                  color = "black") 
 
-ggplot(alunos) + 
+alunos %>% 
+  filter(altura > 3) %>%  
+  ggplot() + 
   geom_freqpoly(mapping = aes(x = altura), 
                 bins = 8) 
 
-ggplot(alunos) + 
+alunos %>% 
+  filter(altura > 3) %>%  
+  ggplot() + 
   geom_density(mapping = aes(x = altura)) 
 ```
 
@@ -127,16 +134,25 @@ ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) +
   geom_rug(colour = "red")
 
 
-ggplot(alunos, mapping = aes(x = altura)) + 
+ggplot(alunos, mapping = aes(x = tempo_para_ufcg)) + 
   geom_freqpoly(bins = 8) + 
-  geom_rug(colour = "red")
+  geom_rug(colour = "red", alpha = .7, size = 1)
 
 ```
+
+## Uma numérica e uma categórica
 
 ```{r}
 ggplot(alunos, aes(x = transporte, y = tempo_para_ufcg)) + 
   geom_jitter(width = .1, height = 0, alpha = .6)
 ```
+
+```{r}
+ggplot(alunos, aes(x = transporte, y = tempo_para_ufcg)) + 
+  geom_boxplot() +
+  geom_jitter(color = "orange", width = .1, height = 0, alpha = .6)
+```
+
 
 ```{r}
 ggplot(alunos, aes(fill = transporte, x = tempo_para_ufcg)) + 
@@ -182,48 +198,21 @@ alunos %>%
 
 ```
 
-
-## Uma numérica e uma categórica
-
-```{r}
-ggplot(alunos) + 
-  geom_histogram(mapping = aes(tempo.para.ufcg), 
-                 binwidth = 10)
-
-ggplot(alunos) + 
-  geom_density(mapping = aes(tempo.para.ufcg))
-
-ggplot(alunos) + 
-  geom_bar(mapping = aes(transporte))
-
-ggplot(alunos, mapping = aes(x = transporte, 
-                             y = tempo.para.ufcg)) + 
-  geom_violin() + 
-  geom_point(position = position_jitter(width = .2), 
-             alpha = .7) 
-
-ggplot(alunos, mapping = aes(x = transporte, 
-                             y = tempo.para.ufcg)) + 
-  geom_boxplot() + 
-  geom_point(position = position_jitter(width = .2), 
-             alpha = .7) 
-
-```
-
 Médias: 
 
 ```{r}
 medias = alunos %>% 
+  filter(!is.na(transporte), !is.na(tempo_para_ufcg)) %>% 
   group_by(transporte) %>% 
-  summarise(tempo_para_ufcg = mean(tempo.para.ufcg))
+  summarise(tempo_para_ufcg = mean(tempo_para_ufcg))
 
 ggplot(alunos, mapping = aes(x = transporte, 
-                             y = tempo.para.ufcg)) + 
-  geom_boxplot() + 
+                             y = tempo_para_ufcg)) + 
+  geom_boxplot(outlier.colour = NA) + 
   geom_point(position = position_jitter(width = .2), 
-             alpha = .7) + 
+             alpha = .7, 
+             color = "darkblue") + 
   geom_point(data = medias, colour = "red", size = 2) 
-
 
 ```
 
@@ -231,8 +220,10 @@ Desvio padrão
 
 ```{r}
 alunos %>% 
+  filter(!is.na(transporte), !is.na(tempo_para_ufcg)) %>% 
   group_by(transporte) %>% 
-  summarise(desvio = sd(tempo.para.ufcg))
+  summarise(desvio = sd(tempo_para_ufcg), 
+            iqr = IQR(tempo_para_ufcg))
 
 ```
 
@@ -240,7 +231,11 @@ alunos %>%
 
 ```{r fig.width=8, fig.height=8}
 library(GGally)
-ggpairs(alunos)
+alunos %>% 
+  filter(complete.cases(.)) %>% 
+  filter(altura > 1) %>% 
+  select(repositorios, linguagens, altura, tempo_para_ufcg) %>% 
+  ggpairs()
 ```
 
 # Um outro dataset maior
