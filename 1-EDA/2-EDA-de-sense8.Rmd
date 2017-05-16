@@ -1,0 +1,63 @@
+---
+title: "Sense8"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r warning=FALSE}
+library(tidyverse, warn.conflicts = F)
+```
+
+
+```{r}
+episodes = read_csv("../dados/sense8-imdb.csv") %>% 
+    filter(series_name == "Sense8")
+```
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = "Sense8", y = UserRating)) + 
+    geom_jitter(width = .1) 
+```
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = UserRating)) + 
+    geom_histogram(binwidth = .5, fill = "white", color = "black") + 
+    geom_rug()
+
+```
+
+```{r}
+median(episodes$UserRating)
+mean(episodes$UserRating)
+```
+
+```{r}
+episodes %>% 
+    ggplot(aes(x = as.character(season), y = UserRating)) + 
+    geom_boxplot(outlier.color = NA) +   
+    geom_jitter(width = .1, size = .5, alpha = .5, color = "red")
+```
+
+```{r}
+episodes %>% 
+  mutate(season = as.character(season)) %>% 
+  ggplot(aes(x = season_ep, y = UserRating, color = season)) + 
+  geom_line() + 
+  geom_point() 
+```
+
+Correlações
+
+```{r}
+episodes %>% 
+    group_by(season) %>% 
+    summarise(correlacao_linear = cor(season_ep, UserRating, 
+                                      method = "pearson"), 
+              correlacao_kendall = cor(season_ep, UserRating, 
+                                       method = "kendall"))
+
+```
+
