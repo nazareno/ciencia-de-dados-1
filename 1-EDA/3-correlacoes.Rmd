@@ -145,7 +145,12 @@ names(alunos) = c("sexo",
 alunos = alunos %>% filter(transporte != "")
 str(alunos)
 
-ggpairs(alunos)
+alunos %>% 
+  filter(complete.cases(.), altura > 1) %>% 
+  select(-sexo, -transporte) %>% 
+  ggpairs()
+
+
 ```
 
 ------
