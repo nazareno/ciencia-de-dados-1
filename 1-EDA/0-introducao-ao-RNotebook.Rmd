@@ -1,0 +1,20 @@
+---
+title: "Exemplo de notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+Esse é um notebook com a linguagem  [R Markdown](http://rmarkdown.rstudio.com) . Talvez *isso seja negrito*. 
+
+```{r}
+x = 2 + 2 
+plot(cars)
+```
+
+Talvez a razão seja outra.
+
+```{r}
+plot(iris$Sepal.Length, iris$Sepal.Width)
+```
+
