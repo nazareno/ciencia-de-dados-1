@@ -3,12 +3,14 @@ title: "Dados de convênios na PB"
 author: "Nazareno"
 date: "5 de julho de 2016"
 output:
-  html_document:
+  html_notebook:
     theme: yeti
     toc: true
     toc_float: true
     fig_width: 5
     fig_height: 4
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r}
@@ -17,9 +19,9 @@ library(ggplot2)
 theme_set(theme_bw())
 ```
 
-# Os dados
+# EDA, um exemplo com mais dados
 
-Repasses do Governo Federal para iniciativas em Municípios na PB. (São os dados usados em <http://github.com/nazareno/diferentonas-server>).
+Usaremos os repasses do Governo Federal para iniciativas em Municípios na PB. (São os dados usados em <http://github.com/nazareno/diferentonas-server>).
 
 ```{r}
 iniciativas = read.csv("../dados/convenios-municipios-pb.csv")
@@ -71,7 +73,7 @@ ggplot(maiores, mapping = aes(y = VL_GLOBAL,
                               x = (NM_MUNICIPIO_PROPONENTE), 
                               colour = NM_MUNICIPIO_PROPONENTE)) + 
   geom_violin() + 
-  geom_point() + 
+  geom_point(alpha = .7) + 
   theme(legend.position="none") +  # Não precisamos da legenda da cor 
   ylab("Valor das iniciativas") + 
   coord_flip()
