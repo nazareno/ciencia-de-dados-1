@@ -22,7 +22,9 @@ head(iris)
 ```
 ## Plotly
 
-```plot_ly(data, x, y, type, mode, color, size)```
+```plot_ly(data, x, y, type, mode, color, size, ...)```
+
+Alguns dos parâmetros mais utilizados:
 
 * data = data frame a ser utilizado.
 * size = valores a serem representados pelos tamanhos dos pontos ou linhas.
@@ -31,6 +33,8 @@ head(iris)
 * type = para especificar o tipo de plot a ser criado: “histogram”, “surface” , “box”, etc.
 * mode = formato que os dados serão representados: “markers”, “lines, “points”.
 * color = valores a serem representados pelas cores nas linhas ou pontos.
+* colors = cores que serão utilizadas.
+* text = texto que será exibido quando passar o cursor sobre um plot.
 
 Para personalizar o gráfico adicionando títulos, modificando nomes:
 
