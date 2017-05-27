@@ -52,6 +52,8 @@ Para unir as duas partes apresentadas acima é aconselhado que se use %>% do dpl
 ```plot_ly(data, x, y, type, mode, color, size) %>%```
 ```layout(title, xaxis = list(title, titlefont), yaxis = list(title, titlefont))```
 
+É possível encontrar diferentes tipos de paletas de cores aqui: https://moderndata.plot.ly/create-colorful-graphs-in-r-with-rcolorbrewer-and-plotly/ 
+
 ### Scatter Plot
 
 ```{r message=F, warning=F}
