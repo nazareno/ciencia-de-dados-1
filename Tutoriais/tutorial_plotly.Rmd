@@ -1,0 +1,152 @@
+---
+title: "Tutorial - Plotly"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+***Um breve tutorial com exemplos de diferentes visualizações dinâmicas utilizando a biblioteca Plotly.***
+
+
+```{r, message=F}
+library(dplyr)
+library(plotly)
+iris = iris
+head(iris)
+```
+## Plotly
+
+```plot_ly(data, x, y, type, mode, color, size, ...)```
+
+Alguns dos parâmetros mais utilizados:
+
+* data = data frame a ser utilizado.
+* size = valores a serem representados pelos tamanhos dos pontos ou linhas.
+* x =  valores para o eixo-x.
+* y = valores para o eixo-y.
+* type = para especificar o tipo de plot a ser criado: “histogram”, “surface” , “box”, etc.
+* mode = formato que os dados serão representados: “markers”, “lines, “points”.
+* color = valores a serem representados pelas cores nas linhas ou pontos.
+* colors = cores que serão utilizadas.
+* text = texto que será exibido quando passar o cursor sobre um plot.
+
+Para personalizar o gráfico adicionando títulos, modificando nomes:
+
+```layout(plot, title, xaxis = list(title, titlefont), yaxis = list(title, titlefont))```
+
+* plot = objeto plotly.
+* title = string contendo o título..
+* xaxis : title = legenda para o eixo-x.
+* xaxis : titlefont = fonte da legenda para o eixo-x.
+* yaxis : title = legenda para o eixo-y.
+* yaxis : titlefont = fonte da legenda para o eixo-y.
+
+Para unir as duas partes apresentadas acima é aconselhado que se use %>% do dplyr:
+
+```plot_ly(data, x, y, type, mode, color, size) %>%```
+```layout(title, xaxis = list(title, titlefont), yaxis = list(title, titlefont))```
+
+É possível encontrar diferentes tipos de paletas de cores aqui: https://moderndata.plot.ly/create-colorful-graphs-in-r-with-rcolorbrewer-and-plotly/ 
+
+### Scatter Plot
+
+```{r message=F, warning=F}
+plot_ly(data = iris, # data frame
+        x = ~Petal.Width, # valor de x
+        y = ~Petal.Length, # valor de y
+        color = ~Species) # agrupamento por cores para uma variável específica
+```
+
+É possível adicionar outras variáveis e personalizar com cores e a legenda do cursor, por exemplo:
+
+```{r message=F}
+plot_ly(data = iris,
+        x = ~Petal.Width,
+        y = ~Petal.Length,
+        color = ~Species,
+        colors = "Set2", # pode ter qualquer outro vetor de cores como c("red", "blue", "green")
+        size = ~Petal.Length, # tamanho de cada plot com base em uma variável
+        text = ~paste("Espécie: ", Species)) %>% # texto a exibir para quando passar o cursor sobre um plot
+  layout(title = "Espécies de flores") # título do gráfico
+```
+
+### Histograma
+
+```{r message=F, warning=F}
+plot_ly(data = iris,
+        x = ~Sepal.Length,
+        type = 'histogram')
+```
+
+### Gráfico de barras
+
+```{r}
+plot_ly(iris,
+        x = ~Species,
+        type = 'histogram') %>%
+  layout(title = "Iris Dataset - Species",
+        xaxis = list(title = "Species"),
+        yaxis = list(title = "Count"))
+```
+
+### Box Plot
+
+```{r}
+plot_ly(iris,
+        y = ~Sepal.Length,
+        type = 'box',
+        color = ~Species) %>%
+  layout(title = "Iris Dataset - Sepal.Length Boxplot",
+        yaxis = list(title = "Sepal.Length"))
+```
+
+### Linhas
+
+```{r}
+air_quality = airquality
+
+plot_ly(data = air_quality %>%
+          filter(Month == 5),
+        x = ~Day,
+        y = ~Temp,
+        name = "Temperatura",
+        type = "scatter",
+        mode="lines") %>%  # a partir deste ponto mais linhas estão sendo adicionadas ao gráfico
+    add_trace(y = ~Wind,
+              name = 'Vento', # cada linha pode possuir um nome
+              line = list(color = 'purple', # uma cor
+                          width = 4)) %>% # uma espessura
+    add_trace(y = ~Ozone,
+              name = 'Ozônio',
+              line = list(color = 'rgb(205, 12, 24)',
+                          width = 4,
+                          dash = 'dot')) %>%
+    add_trace(y = ~Solar.R,
+            name = 'Solar',
+            line = list(color = 'green',
+                        width = 4,
+                        dash = 'dash')) # e um estilo 
+```
+
+### ggplotly
+
+Também é possível utilizar o comando ggplotly para gerar visualizações dinâmicas sobre gráficos criados com a biblioteca ggplot2.
+
+```{r}
+ggplotly(ggplot(air_quality,
+                aes(x = Temp, y = Ozone, color = Temp)) +
+           geom_point() +
+           scale_color_gradient(low="yellow", high="red")
+         )
+```
+
+## Referência
+
+* https://plot.ly/r/
+* https://www.analyticsvidhya.com/blog/2017/01/beginners-guide-to-create-beautiful-interactive-data-visualizations-using-plotly-in-r-and-python/
