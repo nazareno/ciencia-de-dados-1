@@ -1,0 +1,44 @@
+---
+title: "Mais sense8"
+author: "Nazareno"
+output: 
+  html_notebook
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+sense8 = read_csv("../dados/sense8-imdb.csv")
+```
+
+## Sobre visualização 
+
+```{r}
+sense8 %>% 
+  ggplot(mapping = aes(x = series_ep, 
+                       y = r1, 
+                       colour = as.character(season))) + 
+  geom_point(mapping = aes(size = UserVotes)) + 
+  geom_line(mapping = aes(linetype = as.character(season)))
+
+```
+
+
+```{r}
+sense8 %>% 
+  ggplot(mapping = aes(x = season_ep, 
+                       y = r1)) + 
+  geom_line(mapping = aes(linetype = as.character(season))) + 
+  geom_point(mapping = aes(size = UserVotes, colour = r10)) + 
+  facet_grid(series_name ~ season)
+
+```
+
+```{r}
+sense8 %>% 
+  ggplot(mapping = aes(x = season_ep, 
+                       y = as.character(season))) + 
+  geom_tile(mapping = aes(fill = r1)) 
+
+```
+
+

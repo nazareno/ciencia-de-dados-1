@@ -1,29 +1,30 @@
 ---
 title: "Dicas de visualizacao"
 author: "Nazareno"
-date: "19 de julho de 2016"
 output:
-  html_document:
+  html_notebook:
     theme: yeti
     toc: true
     toc_float: true
     fig_width: 5
     fig_height: 4
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r}
-library(dplyr, warn.conflicts = FALSE)
-library(ggplot2)
+library(tidyverse, warn.conflicts = FALSE)
 theme_set(theme_bw())
-source("problema 1/gastos_lib.R")
 ```
 
 Os dados
 
 ```{r}
-gastos = ler_gastos("../dados/ano-atual.csv")
-gastos[gastos$txtDescricao == "Emissão Bilhete Aéreo", "txtDescricao"] = "PASSAGENS AÉREAS"
-gastos$txtDescricao = droplevels(gastos$txtDescricao)
+gastos_bruto = read_csv("../dados/ano-atual.csv")
+gastos = gastos_bruto %>% 
+  mutate(txtDescricao = ifelse(txtDescricao == "Emissão Bilhete Aéreo", 
+                               "PASSAGENS AÉREAS", 
+                               txtDescricao))
 ```
 
 # Gastos ao longo do tempo
@@ -32,8 +33,7 @@ gastos$txtDescricao = droplevels(gastos$txtDescricao)
 gastos.por.mes = gastos %>% 
   filter(numMes < 6) %>% 
   group_by(numMes, txtDescricao) %>% 
-  summarize(total = sum(vlrDocumento) / 1e6) %>% # Em milhões
-  mutate(txtDescricao = as.factor(txtDescricao))
+  summarize(total = sum(vlrDocumento) / 1e6) 
 
 ggplot(gastos.por.mes, aes(x = numMes, y = total, colour = txtDescricao)) +
   labs(x = "Mês de 2016", y = "Gastos em Milhões") +
@@ -59,6 +59,7 @@ ggplot(gastos.por.mes, aes(x = numMes, y = total, colour = txtDescricao)) +
 E por dia? 
 
 ```{r}
+library(lubridate)
 gastos.por.dia = gastos %>% 
   filter(numMes < 6) %>% 
   mutate(dia = day(datEmissao)) %>% 

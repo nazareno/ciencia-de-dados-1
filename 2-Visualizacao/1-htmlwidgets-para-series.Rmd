@@ -1,0 +1,77 @@
+---
+title: "htmlwidgets-para-series"
+author: "Nazareno"
+output: 
+  html_document
+---
+
+```{r setup}
+library(htmlwidgets)
+library(dygraphs)
+library(tidyverse)
+```
+
+```{r}
+series = read_csv("../dados/sense8-imdb.csv")
+```
+
+
+
+```{r}
+series %>% 
+  ggplot(aes(x = series_ep, y = UserRating, colour = as.character(season))) + 
+  geom_line() 
+```
+
+## Plotly
+
+Veja também [nosso tutorial](https://github.com/nazareno/ciencia-de-dados-1/blob/master/Tutoriais/tutorial_plotly.Rmd)
+
+```{r}
+library(plotly)
+
+p = series %>% 
+  ggplot(aes(x = series_ep, 
+             y = UserRating, 
+             colour = as.character(season), 
+             label = Episode)) + 
+  geom_line() 
+p
+ggplotly(p)
+```
+
+
+```{r}
+plot_ly(data = series, 
+        x = ~ series_ep, 
+        y = ~ UserRating, 
+        name = "avaliacoes",
+        color = ~as.character(season), 
+        text = ~Episode) %>% 
+  add_trace(y = ~ UserRating, 
+            type = "scatter",
+            mode = "lines+markers",
+            color = ~as.character(season),
+            line = list(width = 1), 
+            hoverinfo = "text")
+```
+
+## Highcharter
+
+```{r}
+library(highcharter)
+
+hchart(series, 
+       type = "scatter", 
+       hcaes(UserVotes, UserRating, group = seasonEpisode))
+
+```
+
+
+Específico para séries temporais
+
+```{r}
+dygraph(sunspots) %>%
+  dyRangeSelector()
+```
+

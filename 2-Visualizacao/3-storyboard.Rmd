@@ -1,0 +1,58 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(highcharter)
+
+series = read_csv("../dados/sense8-imdb.csv")
+```
+
+### Frame 1
+
+```{r}
+hchart(series, 
+       type = "scatter", 
+       hcaes(UserVotes, UserRating, group = season))
+```
+
+***
+
+Essa é a primeira parte da história.
+
+### Frame 2
+
+```{r}
+plot_ly(data = series, 
+        x = ~ series_ep, 
+        y = ~ UserRating, 
+        name = "avaliacoes",
+        color = ~as.character(season), 
+        text = ~Episode) %>% 
+  add_trace(y = ~ UserRating, 
+            type = "scatter",
+            mode = "lines+markers",
+            color = ~as.character(season),
+            line = list(width = 1), 
+            hoverinfo = "text")
+```
+
+*** 
+
+Comentário do Frame 2.
+
+### Frame 3
+
+```{r}
+series %>% 
+  ggplot(aes(x = UserRating)) + 
+  geom_histogram(bins = 10, fill = "white", color = "darkgray")
+
+```
+

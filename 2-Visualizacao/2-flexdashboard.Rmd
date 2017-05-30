@@ -1,0 +1,56 @@
+---
+title: "Enjoando de sense8"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(highcharter)
+
+series = read_csv("../dados/sense8-imdb.csv")
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+hchart(series, 
+       type = "scatter", 
+       hcaes(UserVotes, UserRating, group = season))
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+plot_ly(data = series, 
+        x = ~ series_ep, 
+        y = ~ UserRating, 
+        name = "avaliacoes",
+        color = ~as.character(season), 
+        text = ~Episode) %>% 
+  add_trace(y = ~ UserRating, 
+            type = "scatter",
+            mode = "lines+markers",
+            color = ~as.character(season),
+            line = list(width = 1), 
+            hoverinfo = "text")
+```
+
+### Chart C
+
+```{r}
+series %>% 
+  ggplot(aes(x = UserRating)) + 
+  geom_histogram(bins = 10, fill = "white", color = "darkgray")
+```
+

@@ -8,14 +8,11 @@
 #
 
 library(shiny)
-library(dplyr, warn.conflicts = F)
-library(readr)
-library(ggplot2)
+library(tidyverse, warn.conflicts = F)
 theme_set(theme_bw())
 
 entradas = read_csv("../../dados/ccc-entradas-por-genero.csv")
 
-# Define server logic required to draw a histogram
 shinyServer(function(input, output) {
   output$plotTempo = renderPlot({
     entradas %>% 
