@@ -22,15 +22,28 @@ theme_set(theme_bw())
 
 ##O que é?
 
-Highcharts é uma biblioteca de gráficos, que oferece uma maneira fácil de adicionar gráficos interativos. 
+[Highcharts](https://www.highcharts.com/) é uma biblioteca para criar visualizações em javascript que é popular na web. [Higcharter](http://jkunst.com/highcharter/) é um wrapper que permite o uso do Highcharts com código R, através de um htmlwidget.
+
+### Os dados
+
+Usaremos dados sobre diamantes:
+
+```{r}
+glimpse(diamonds)
+```
 
 
 ###Gráfico de barras:
+
 Para criar um gráfico de barras que mostre quantos diamantes por tipo de corte tem o dataSet diamonds:
+
 ```{r}
-hchart(diamonds$cut, colorByPoint = TRUE, name = "Quantidade de diamantes por tipo de corte")
+hchart(diamonds$cut, 
+       colorByPoint = TRUE, 
+       name = "Quantidade de diamantes por tipo de corte")
 ```
-Observe que ao passar o mouse sobre uma determinada coluna, o valor exato dela é apresentado
+
+Observe que ao passar o mouse sobre uma coluna o tooltip mostra os valores da contagem para aquela categoria.
 
 ###Histograma:
 Para criar um histograma que mostre quantos diamentes existem por faixa de preço:
@@ -39,7 +52,7 @@ hchart(diamonds$price, color = "#B71C1C", name = "Preço") %>%
   hc_title(text = "Você pode dar um zoom nesse gráfico aqui")
 ```
 
-Agora observe que passamos a mesma função, mudando basicamente o tipo passado para função. No primeiro gráfico, passamos uma variável categórica, e ele automaticamente nos gerou um gráfico de barras agrupando pela variável. No segundo gráfico, passamos uma variável numérica, e como ele agrupa pela variável passada, automaticamente nos gerou um histograma que podemos dar zoom, e observar a quantidade de diamantes por faixa de preço.
+Usamos a mesma função, mudando o tipo da variável que será visualizada. No primeiro gráfico, passamos uma variável categórica, e o highcharter automaticamente nos gerou um gráfico de barras agrupando pela variável. No segundo gráfico, passamos uma variável numérica, e o highcharter nos gerou um histograma que podemos dar zoom, e observar a quantidade de diamantes por faixa de preço.
 
 Para mais opções de argumentos dos gráficos acima:
 https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_chart
@@ -104,16 +117,6 @@ hc
 ```
 Observe que se você clicar em um nome de alguma das cidades na parte inferior do gráfico, as informações sobre ela desaparecem.
 
-
-
-Para transformar para um gráfico de barras e deixar o mesmo em 3D:
-```{r}
-hc <- hc %>% 
-  hc_chart(type = "column",
-           options3d = list(enabled = TRUE, beta = 15, alpha = 15))
-
-hc
-```
 
 Para mais opções desse gráfico:
 https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_chart
