@@ -1,0 +1,134 @@
+---
+title: "Tutorial sobre highcharter"
+author: "Antonio Lúcio"
+date: "28 de maio de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Tutorial sobre Highcharter
+
+```{r}
+library(magrittr)
+library(highcharter)
+library(dplyr, warn.conflicts = FALSE)
+library(ggplot2)
+library(datasets)
+theme_set(theme_bw())
+```
+
+##O que é?
+
+Highcharts é uma biblioteca de gráficos, que oferece uma maneira fácil de adicionar gráficos interativos. 
+
+
+###Gráfico de barras:
+Para criar um gráfico de barras que mostre quantos diamantes por tipo de corte tem o dataSet diamonds:
+```{r}
+hchart(diamonds$cut, colorByPoint = TRUE, name = "Quantidade de diamantes por tipo de corte")
+```
+Observe que ao passar o mouse sobre uma determinada coluna, o valor exato dela é apresentado
+
+###Histograma:
+Para criar um histograma que mostre quantos diamentes existem por faixa de preço:
+```{r}
+hchart(diamonds$price, color = "#B71C1C", name = "Preço") %>% 
+  hc_title(text = "Você pode dar um zoom nesse gráfico aqui")
+```
+
+Agora observe que passamos a mesma função, mudando basicamente o tipo passado para função. No primeiro gráfico, passamos uma variável categórica, e ele automaticamente nos gerou um gráfico de barras agrupando pela variável. No segundo gráfico, passamos uma variável numérica, e como ele agrupa pela variável passada, automaticamente nos gerou um histograma que podemos dar zoom, e observar a quantidade de diamantes por faixa de preço.
+
+Para mais opções de argumentos dos gráficos acima:
+https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_chart
+
+##Boxplot
+
+Para gerar um boxplot:
+```{r}
+hcboxplot(x = diamonds$x, var = diamonds$color,
+          name = "Length", color = "#2980b9") 
+```
+Observe que ao passar o mouse por cima de um boxplot, aparecerá todas as informações pertinentes a ele.
+
+
+##Dispersão:
+
+Para o gráfico a seguir, utilizamos o dataSet mtcars. Onde para plotar o gráfico utilizamos 4 variáveis numéricas.
+
+- wt: Peso (1000 lbs)
+
+- mpg: Milhas por galão
+
+- drat: Relação do eixo trazeiro 
+
+- hp: Cavalos de potência
+
+```{r}
+highchart() %>% 
+  hc_title(text = "Gráfico de dispersão com tamanho e cor") %>% 
+  hc_add_series_scatter(mtcars$wt, mtcars$mpg,
+                        mtcars$drat, mtcars$hp)
+
+```
+
+Onde:
+
+- O eixo x é o peso do carro
+
+- O eixo y são as milhas por galão
+
+- O tamanho do circulo proporcional a relação do eixo trazeiro
+
+- A cor são os cavalos de potência, quanto mais claro mais cavalos o carro possui.
+
+Para mais opções desse gráfico: 
+https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_add_series_scatter
+
+
+###Gráfico de linhas
+
+Para o gráfico a seguir, utilizamos o dataSet citytemp. Este dataset nos traz informações sobre a temperatura durante um ano de 4 cidades: Tokyo, Londres, Berlin e Nova York. 
+
+```{r}
+hc <- highchart() %>% 
+  hc_xAxis(categories = citytemp$month) %>%  #O eixo x será os meses
+  hc_add_series(name = "Tokyo", data = citytemp$tokyo) %>%  #adicionando a linha referente a ToKyo
+  hc_add_series(name = "Londres", data = citytemp$london) %>% 
+  hc_add_series(name = "Outras cidades", 
+                data = (citytemp$tokyo + citytemp$london)/2) #realizando a médias das cidades restantes para plotar em uma única linha
+
+hc
+```
+Observe que se você clicar em um nome de alguma das cidades na parte inferior do gráfico, as informações sobre ela desaparecem.
+
+
+
+Para transformar para um gráfico de barras e deixar o mesmo em 3D:
+```{r}
+hc <- hc %>% 
+  hc_chart(type = "column",
+           options3d = list(enabled = TRUE, beta = 15, alpha = 15))
+
+hc
+```
+
+Para mais opções desse gráfico:
+https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_chart
+http://api.highcharts.com/highcharts/xAxis
+https://www.rdocumentation.org/packages/highcharter/versions/0.5.0/topics/hc_add_series
+
+
+###Outras opções
+
+A biblioteca é vasta, pode-se trabalhar com mapas, integrar com Shiny, mudar temas, etc.
+http://jkunst.com/highcharter/index.html
+
+
+
+
+
+
+
