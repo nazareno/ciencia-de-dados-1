@@ -1,0 +1,176 @@
+---
+title: "Tutorial - Visualizações Narrativas"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+***Um breve tutorial com exemplos de diferentes maneiras e recursos para contar histórias através de visualizações.***
+
+## Introdução
+
+A visualização de dados está se tornando rapidamente uma língua comum para empresas que utilizam business intelligence para tomar melhores decisões orientadas a dados. A visualização de dados não chama a atenção apenas para as métricas importantes, como também auxilia na descoberta de padrões não vistos anteriormente e em constatações que seriam de fácil visualização ao se verificar números em uma simples planilha. Para isso, narrativas que contam histórias de como as visualizações são montadas nos ajudam a guiar o leitor num fluxo de informações fazendo com que ele capture a mensagem proposta.
+ 
+Quando queremos contar uma história, geralmente tentamos responder os seguintes questionamentos: Quem? O que? Quando? Onde? Por quê? Como? Uma visualização narrativa vai tentar fazer com que o leitor responda algumas dessas questões a partir de uma exploração rápida e intuitiva dos dados.
+ 
+Existem algumas propriedades que podem caracterizar uma visualização quando se deseja contar uma história, elas variam de acordo com o objetivo.
+
+## Táticas narrativas visuais
+
+ Uma propriedade que podemos destacar é a ordem que a visualização será analisada, quem irá dirigir a leitura. Há dois extremos:
+ 
+**Dirigida pelo autor:**
+
+* Leitura linear
+* Muitas mensagens
+* Sem interação
+
+**Dirigida pelo observador:**
+
+* Não há uma ordem definida
+* Poucas ou sem mensagens
+* Interação livre
+
+## Táticas de estrutura narrativa
+
+Outra propriedade que podemos observar são os recursos visuais utilizados. Eles podem ser definidos através de três pontos de vista:
+ 
+**Estruturação visual:** essa característica refere aos mecanismos utilizados para ajudar o observador a situar sua posição no contexto geral da narrativa, permitindo que ele seja orientado e tenha conhecimento de seu progresso.
+
+* *Barra de progresso, Controle de linha do tempo…*
+ 
+**Destaque:** mecanismo visual para direcionar a atenção do observador para elementos particulares da visualização.
+
+* *Tamanho, cor, forma, movimento, enquadramento, áudio…*
+ 
+**Orientação de transição:** técnicas para mover o observador de uma cena para outra sem que fique desorientado.
+
+* *Transições animadas, continuidade do objeto, movimento da câmera…*
+
+## Gêneros
+
+As duas propriedades acima não são utilizadas separadamente, elas são combinadas de diferentes maneiras. Podemos ver essas combinações nos gêneros descritos abaixo.
+
+### Estilo de revista
+
+Imagem normalmente utilizada para ilustrar um estudo.
+
+* Utilizada em meio a textos
+* Caracterizado por apresentar apenas um frame
+* Ausência de elementos interativos
+* Muito utilizada em artigos
+ 
+Exemplos:
+
+[Padestrin Levitation.net](http://www.nytimes.com/interactive/2010/02/02/us/politics/20100201-budget-porcupine-graphic.html)
+
+[A visual introduction to machine learning](http://www.washingtonpost.com/wp-srv/special/world/north-korean-prison-camps-2009/)
+
+### Gráfico anotado
+
+Às vezes, um gráfico não é suficiente para comunicar claramente os dados por conta própria. As anotações são úteis para mostrar quando ocorreram eventos importantes, especialmente quando eles têm um impacto notável nos dados. Você pode usar as anotações do gráfico para indicar quando as mudanças de negócios aconteceram (como um novo lançamento do produto) ou destacar eventos sazonais como feriados.
+
+* Faz uso de objetos contínuos para guiar o observador
+* Ordem dirigida pelo observador
+* Artifícios de seleção, filtragem e busca
+* Destaque e detalhes para elementos apontados
+* Títulos e anotações
+* Instruções
+ 
+Exemplo:
+
+[Timeline of the far future](http://www.informationisbeautiful.net/visualizations/timeline-of-the-far-future/) - Os pontos onde ocorrem grandes eventos possuem anotações e explicações diretamente para o leitor.
+	
+	
+### Anúncio particionado
+
+Um gráfico que muito frequentemente se utiliza de filtros para apresentar uma visualização para apenas um grupo presente nos dados.
+
+* Faz uso de objetos contínuos para guiar o observador
+* Ordem dirigida pelo observador
+* Artifícios de seleção, filtragem e busca
+* Destaque e detalhes para elementos apontados
+* Títulos e anotações
+* Instruções
+* Raramente apresentam texto introdutórios ou conclusivos
+ 
+Exemplos:
+
+[How You Will Die](http://flowingdata.com/2016/01/19/how-you-will-die/)
+
+[Network Effect](http://networkeffect.io/pour)
+
+[A Peek Into Netflix Queues](http://www.nytimes.com/interactive/2010/01/10/nyregion/20100110-netflix-map.html)
+
+[How Americans Spend Their Day](http://projects.flowingdata.com/timeuse/)
+ 
+### Fluxograma
+
+É um dos gêneros de visualizações narrativas que mais engloba os outros, visto que ele consegue unir várias características dos outros nele mesmo, por exemplo utilizando imagens e anotações nos gráficos.
+
+* Leitura linear, orientada pelo autor
+* Sem acesso randômico
+* Muitas anotações
+ 
+Exemplo:
+
+[Flow Chart](https://flowingdata.com/2009/01/15/flow-chart-shows-you-what-chart-to-use/) - Fluxograma que ajuda a decidir qual o melhor gráfico para sua abordagem.
+ 
+### Quadrinhos
+
+Frames lado a lado ou abaixo que passam uma ideia de continuidade.
+
+* Utilização de vários frames
+* Leitura linear, orientada pelo autor
+* Presença de título, pode incluir texto introdutórios
+ 
+Exemplos:
+
+[Meditation](http://www.informationisbeautiful.net/visualizations/what-is-meditation-mindfulness-good-for/?utm_content=bufferee4a6&utm_medium=social&utm_source=facebook.com&utm_campaign=buffer)
+
+[Life Cycle of a Beetle through a Year](https://addcsummer2013.wordpress.com/2013/06/25/tuftes-beetle/)
+
+### Slides
+
+Caracterizado por apresentar seções. Cada seção normalmente apresenta uma visualização com uma perspectiva/informação diferenciada.
+
+* Procura direcionar a atenção do observador com artifícios visuais 
+* Tentar fazer uma guia para que as transições ocorram de maneira entendível
+* Leitura linear, orientada pelo autor
+* Apresenta botões de transição
+* Pouca interação
+* Mensagens simultâneas
+* Repetição de mensagem
+ 
+Exemplos:
+
+[Budget Forecasts, Compared With Reality](http://www.nytimes.com/interactive/2010/02/02/us/politics/20100201-budget-porcupine-graphic.html)
+
+[On the Map: Five Major North Korean Prison Camps](http://www.washingtonpost.com/wp-srv/special/world/north-korean-prison-camps-2009/)
+
+### Vídeos
+
+Usando um roteiro como base para a visualização, a utilização de mídias (áudio, vídeo) auxiliam na compreensão do conteúdo pelo público. Alguns estudiosos defendem que a "narrativa visual" possui uma extrema importância, uma vez que proporciona uma exploração rápida e intuitiva quando os dados são muito grandes.
+
+* Procura direcionar a atenção do observador com artifícios visuais e auditivos
+* Tentar fazer uma guia para que as transições ocorram de maneira entendível
+* Leitura linear, orientada pelo autor
+* Mensagens simultâneas
+* Repetição de mensagem
+* Raramente há anotações
+ 
+Exemplos:
+
+[The Crisis of Credit Visualized](https://vimeo.com/3261363 )
+
+[The Fallen of World War II](https://vimeo.com/128373915)  - Analisa os custos humanos da Segunda Guerra Mundial e faz um paralelo entre outras guerras.
+
+## Referência
+
+[Narrative Visualization: Telling Stories with Data](http://vis.stanford.edu/files/2010-Narrative-InfoVis.pdf)
