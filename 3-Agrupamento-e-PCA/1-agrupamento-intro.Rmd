@@ -1,0 +1,397 @@
+---
+title: "Tipos de filmes"
+author: "Nazareno"
+date: "16/04/2017"
+output: 
+    
+    html_notebook:
+        theme: cerulean
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load_code}
+library(tidyverse, warn.conflicts = F)
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
+theme_set(theme_light())
+source("plota_solucoes_hclust.R")
+```
+
+# Tipos de filme de Scarlett Johansson
+
+Usaremos dados do [Rotten Tomatoes](https://www.rottentomatoes.com) sobre os filmes de Scarlett Johansson. 
+
+O código abaixo lê a tabela no html da página do rottentomatoes.com, extrai, limpa e organiza os dados em um tibble (que é um subtipo de data.frame).
+
+```{r}
+from_page <- read_html("https://www.rottentomatoes.com/celebrity/scarlett_johansson/") %>% 
+    html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
+    html_table(fill=TRUE) %>% # Faz parse
+    as.tibble()
+
+filmes = from_page %>% 
+    filter(RATING != "No Score Yet", 
+           `BOX OFFICE` != "—", 
+           CREDIT != "Executive Producer") %>%
+    mutate(RATING = as.numeric(gsub("%", "", RATING)), 
+           `BOX OFFICE` = as.numeric(gsub("[$|M]", "", `BOX OFFICE`))) %>% 
+    filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
+```
+
+Se estiver sem conexão, use esse csv.
+
+```{r}
+filmes = read_csv("dados/filmes-scarlett-johanssson.csv")
+```
+
+
+## A intuição
+
+Uma forma de descrever estrutura nos dados é percebendo grupos de observações mais semelhantes entre si que com o restante dos dados. Agrupamentos. 
+
+Por exemplo, observando as avaliações dos filmes:
+
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = RATING)) + 
+    geom_jitter(width = .01, height = 0, size = 2, alpha = .6)
+
+filmes %>% 
+    ggplot(aes(x = RATING)) + 
+    geom_histogram(bins = 16) + 
+    geom_rug()
+```
+
+Já considerando o ano de lançamento, não há uma estrutura clara de grupos. 
+
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = YEAR)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
+
+filmes %>% 
+    ggplot(aes(x = `YEAR`)) + 
+    geom_histogram(bins = 17) + 
+    geom_rug()
+```
+
+Podemos gerar dados sintéticos que tenham tendência de grupos, também.
+
+```{r}
+tibble(a = c(rnorm(100, mean = 10, sd = 10), 
+             rnorm(40, mean = 80, sd = 15))) %>% 
+    ggplot(aes(x = "teste", y = a)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
+
+```
+
+Para a renda do filme, observar uma escala linear ou logarítmica levam a conclusões diferentes. 
+
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6)  
+    
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    scale_y_log10()
+
+filmes %>% 
+    ggplot(aes(x = `BOX OFFICE`)) + 
+    geom_histogram(bins = 20) + 
+    geom_rug()
+
+filmes %>% 
+    ggplot(aes(x = `BOX OFFICE`)) + 
+    geom_histogram(bins = 20) + 
+    scale_x_log10() + 
+    geom_rug()
+
+```
+
+## Agrupamento 
+
+Para produzir uma solução de agrupamento precisamos de: 
+
+* Definição de proximidade/distância entre pontos
+* Definição de proximidade/distância entre grupos ou grupos e pontos
+* Processo de agrupamento 
+* Decidir quantos grupos existem
+
+Depois vem o principal: **avaliar e interpretar** a solução. _Agrupamento sempre dá um resultado. Nem sempre é útil_. 
+
+## Com uma dimensão
+
+Há duas maneiras principais de agrupar: aglomerativa ou baseada em partição. Vamos explorar primeiro a **hierárquica aglomerativa**.
+
+```{r}
+distancias.long = filmes %>% 
+    select(RATING) %>%
+    dist(method = "euclidean") %>% 
+    as.matrix %>% 
+    reshape2::melt(varnames = c("row", "col"))
+
+distancias.long %>% 
+    ggplot(aes(x = row, y = col, fill = value)) + 
+    geom_tile()
+
+# distancias = filmes %>% 
+#     select(RATING) %>%
+#     dist(method = "euclidean") %>% 
+#     as.matrix %>% 
+#     heatmap()
+```
+
+
+
+```{r}
+row.names(filmes) = NULL
+agrupamento_h = filmes %>% 
+    column_to_rownames("TITLE") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
+    select(RATING) %>%
+    dist(method = "euclidian") %>% 
+    hclust(method = "ward.D")
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) 
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
+    geom_hline(yintercept = 45, colour = "red")
+```
+
+Cada junção é um passo do algoritmo. A altura na dendrograma em cada passo significa a dissimilaridade entre os pontos ou grupos juntados naquele passo. 
+
+Na medida que vamos aglomerando, as dissimilaridades nas junções tendem a ir aumentando caso haja estrutura de grupos.
+
+```{r}
+data.frame(k = 1:NROW(agrupamento_h$height), 
+           height = agrupamento_h$height) %>% 
+    ggplot(aes(x = k, y = height)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Junções feitas (34 - clusters)", y = "Dissimilaridade na junção")
+
+```
+
+Vejamos as soluções com diferentes números de grupos.
+
+```{r}
+solucoes = tibble(k = 1:9)
+
+atribuicoes = solucoes %>% 
+    group_by(k) %>% 
+    do(cbind(filmes, 
+             grupo = as.character(cutree(agrupamento_h, .$k)))) 
+
+atribuicoes %>% 
+    ggplot(aes(x = "Filmes", y = RATING, colour = grupo)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    facet_wrap(~ paste(k, " grupos"))
+
+```
+
+`stats::heatmap()` é uma função que visualiza distâncias entre pontos organizando linhas e colunas via `hclust`:
+
+```{r}
+filmes %>% 
+    select(RATING) %>%
+    dist(method = "euclidean") %>%
+    as.matrix %>%
+    heatmap()
+```
+
+### Variando o método de linkage
+
+```{r}
+plota_hclusts_1d(filmes, "RATING", 
+                 linkage_method = "centroid", # single, complete, average, centroid, median, ...
+                 ks = 1:6)
+names(iris)
+```
+
+### Com outras variáveis
+
+Agrupamento sempre dá um resultado. Mesmo quando ele não é útil:
+
+```{r}
+plota_hclusts_1d(filmes, "YEAR", linkage_method = "centroid", ks = 1:6)
+```
+
+Compare as soluções usando a escala linear da variável e a transformada em log:
+
+```{r}
+plota_hclusts_1d(filmes, "`BOX OFFICE`", linkage_method = "centroid", ks = 1:6)
+
+filmes %>% mutate(`BOX OFFICE` = log(`BOX OFFICE`)) %>% 
+    plota_hclusts_1d("`BOX OFFICE`", linkage_method = "centroid", ks = 1:6) + 
+    scale_y_log10()
+```
+
+## Silhouetas
+
+Dada a distância média de um ponto para os demais do seu cluster $a(i)$ e a distância média do ponto para todos os demais do cluster mais próximo $b(i)$, a largura da silhoueta de $i$ é : 
+
+\[
+s(i) := ( b(i) - a(i) ) / max( a(i), b(i) )
+\]
+
+Repare como 1 significa uma boa atribuição para $i$, 0 significa indefinição e $-1$ significa que há outro cluster onde $i$ estaria melhor alocado.
+
+```{r}
+distancias = filmes %>% 
+    select(RATING) %>%
+    dist(method = "euclidean")
+
+agrupamento_hs = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "complete")
+
+
+plot(silhouette(cutree(agrupamento_hs, k = 4), distancias))
+plot(silhouette(cutree(agrupamento_hs, k = 2), distancias))
+```
+
+## Duas dimensões
+
+```{r}
+p = filmes %>% 
+    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
+    geom_point() 
+p
+#ggplotly(p)
+```
+
+
+```{r}
+agrupamento_h_2d = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "centroid")
+
+ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+
+data.frame(k = NROW(agrupamento_h_2d$height):1, 
+           height = agrupamento_h_2d$height) %>% 
+    ggplot(aes(x = k, y = height)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
+
+```
+
+Como sempre, o algoritmo encontra grupos. No caso, parecem até bem separados. Vamos visualizá-los:
+
+```{r}
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes, 
+                 c("RATING", "`BOX OFFICE`"), 
+                 linkage_method = "centroid", ks = 1:6)
+```
+
+O agrupamento está acontecendo todo em função de BOX OFFICE, apenas. Como as escalas são diferentes, BOX OFFICE domina qualquer cálculo de distância euclidiana. 
+
+Solução: standardize (aka scale).
+
+```{r}
+agrupamento_h_2d = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>% 
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean") %>% 
+    hclust(method = "centroid")
+
+ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+
+filmes2 = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes2, 
+                 c("RATING", "`BOX OFFICE`"), 
+                 linkage_method = "ward.D", ks = 1:6) + scale_y_log10()
+```
+
+```{r}
+distancias = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>% 
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean")
+
+plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias))
+
+```
+
+
+## Mais variáveis
+
+E se tivéssemos mais de duas variáveis?
+
+
+```{r}
+filmes2 = agrupamento_h_md = filmes %>% 
+    mutate(TITLE_LENGTH = nchar(TITLE)) 
+
+dists = filmes2 %>% 
+    column_to_rownames("TITLE") %>%
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    select(RATING, `BOX OFFICE`, TITLE_LENGTH, YEAR) %>%
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean")
+
+agrupamento_h_md = dists %>% 
+    hclust(method = "ward.D")
+
+ggdendrogram(agrupamento_h_md, rotate = T)
+cores = RColorBrewer::brewer.pal(4, "Set3")
+plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, border = NA)
+```
+
+```{r}
+atribuicoes = tibble(k = 1:5) %>% 
+    group_by(k) %>% 
+    do(cbind(filmes2, 
+             grupo = as.character(cutree(agrupamento_h_md, .$k)))) 
+
+atribuicoes_long = atribuicoes %>% 
+    mutate(`BOX OFFICE` = scale(log10(`BOX OFFICE`)), 
+           YEAR = scale(YEAR), 
+           RATING = scale(RATING), 
+           TITLE_LENGTH = scale(TITLE_LENGTH)) %>% 
+    gather(key = "variavel", value = "valor", -TITLE, -k, -grupo, -CREDIT) 
+
+atribuicoes_long %>% 
+    ggplot(aes(x = variavel, y = valor, group = grupo, colour = grupo)) + 
+    geom_point(alpha = .4, position = position_dodge(width = .5)) + 
+    facet_wrap(~ paste(k, " grupos")) + 
+    labs(x = "", y = "z-score")
+
+atribuicoes_long %>% 
+    filter(k == 4) %>%
+    ggplot(aes(x = variavel, 
+               y = valor, 
+               colour = grupo)) + 
+    geom_boxplot() + 
+    geom_point(alpha = .4, position = position_jitter(width = .1)) + 
+    facet_wrap(~ grupo) + 
+    labs(x = "", y = "z-score")
+
+atribuicoes_long %>% 
+    filter(k == 4) %>%
+    ggplot(aes(x = variavel, y = valor, group = TITLE, colour = grupo)) + 
+    geom_point(alpha = .3, size = .5) + 
+    geom_line(alpha = .7) + 
+    facet_wrap(~ paste("Grupo ", grupo)) + 
+    labs(x = "", y = "z-score")
+```
+
