@@ -173,7 +173,7 @@ Na medida que vamos aglomerando, as dissimilaridades nas junções tendem a ir a
 ```{r}
 data.frame(k = 1:NROW(agrupamento_h$height), 
            height = agrupamento_h$height) %>% 
-    ggplot(aes(x = k, y = height)) + 
+    ggplot(aes(x = k, y = height)) + \
     geom_line(colour = "grey") + 
     geom_point() + 
     labs(x = "Junções feitas (34 - clusters)", y = "Dissimilaridade na junção")

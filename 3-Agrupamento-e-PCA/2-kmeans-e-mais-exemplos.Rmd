@@ -51,6 +51,11 @@ summary(select(dw2, -repository_language))
 dw2.scaled = dw2 %>% 
   mutate_each(funs(as.vector(scale(.))), 2:5)
 summary(dw2.scaled)
+
+dw2.scaled %>% 
+    select(-repository_language) %>% 
+    ggpairs()
+
 ```
 
 
@@ -136,7 +141,7 @@ dw2.scaled.km.long = km %>%
 
 dw2.scaled.km.long %>% 
     ggplot(aes(x = `variável`, y = valor, group = repository_language, colour = .cluster)) + 
-    geom_point(alpha = 0.2) + 
+    #geom_point(alpha = 0.2) + 
     geom_line(alpha = .5) + 
     facet_wrap(~ .cluster) 
 
@@ -219,8 +224,7 @@ atribuicoes %>%
     ggplot(aes(x = RATING, y = `BOX.OFFICE`, label = TITLE, colour = .cluster)) + 
     geom_point() + 
     #geom_text() + 
-    facet_wrap(~ k)
-    #+ scale_y_log10()
+    facet_wrap(~ k) + scale_y_log10()
 
 # A silhoueta
 dists = select(filmes_t, RATING, `BOX OFFICE`) %>% dist()
