@@ -25,7 +25,10 @@ source("github-lib.R")
 dw <- load_github_wide()
 summary(dw)
 
-ggpairs(select(dw, -repository_language))
+dw %>% 
+    select(-repository_language) %>% 
+    ggpairs()
+
 # XML e Bluespec têm mais de 50 pushes / repositório e 
 # outras linguagens têm também números estranhos. Filtraremos.
 dw <- dw %>% 
@@ -36,21 +39,25 @@ As variáveis são bastante assimétricas e concentradas em pequenos valores. Tr
 
 ```{r}
 # Escala de log 
-dw2 <- log(dw[,2:5])
-dw2$repository_language <- dw$repository_language
-ggpairs(select(dw2, -repository_language))
+dw2 <- dw %>% 
+    mutate_each(funs(log), 2:5)
+
+dw2 %>% 
+    select(-repository_language) %>% 
+    ggpairs()
 
 summary(select(dw2, -repository_language))
-#dw2.scaled = scale(select(dw2, -repository_language))
-dw2.scaled = select(dw2, -repository_language) %>% 
-  mutate_each(funs(scale))
+
+dw2.scaled = dw2 %>% 
+  mutate_each(funs(as.vector(scale(.))), 2:5)
 summary(dw2.scaled)
 ```
 
 
 ```{r}
-row.names(dw2.scaled)  = dw2$repository_language
-dists = dist(dw2.scaled, method = "euclidean")
+dists = dw2.scaled %>% 
+    column_to_rownames("repository_language") %>% 
+    dist(method = "euclidean")
 hc = hclust(dists, method = "ward.D")
 
 plot(hc, cex = .6)
@@ -59,58 +66,130 @@ plot(hc, hang = -1)
 n_clusters = 4
 rect.hclust(hc, k=n_clusters)
 
-dw2$cluster = factor(cutree(hc, k=n_clusters))
+dw2 <- dw2 %>% 
+    mutate(cluster = hc %>% 
+               cutree(k = n_clusters) %>% 
+               as.character())
 
-dw2.scaled$repository_language = dw2$repository_language
-dw2.scaled$cluster = factor(cutree(hc, k=n_clusters))
+dw2.scaled <- dw2.scaled %>% 
+    mutate(cluster = hc %>% 
+               cutree(k = n_clusters) %>% 
+               as.character())
 
 dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster"))
 
-plot(silhouette(cutree(hc, k = n_clusters), dists), col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
+hc %>% 
+    cutree(k = n_clusters) %>% 
+    silhouette(dists) %>% 
+    plot(col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
 
-ggplot(dw2.long, aes(x = variable, y = value, group = repository_language, colour = cluster)) + 
+dw2.long %>% 
+    ggplot(aes(x = variable, y = value, group = repository_language, colour = cluster)) + 
     geom_line(alpha = 0.4) + 
     facet_wrap(~ cluster) 
 
 ```
 
+```{r}
+library(plotly)
+p <- dw2 %>%
+    plot_ly(type = 'parcoords',
+            line = list(color = ~cluster),
+            dimensions = list(
+                #list(range = c(1, 4), label = "cluster", values = ~cluster),
+                list(range = c(0, 4),
+                     label = 'Forks/repo', values = ~ForkEvent),
+                list(range = c(0, 4),
+                     constraintrange = c(5,6),
+                     label = 'Issues/repo', values = ~IssuesEvent),
+                list(range = c(0, 4),
+                     label = 'Pushes/repo', values = ~PushEvent),
+                list(range = c(0, 4),
+                     label = 'Watches/repo', values = ~WatchEvent)
+            )
+    )
+p
+```
+
+
 ## k-means
 
 ```{r}
-toclust = dw2.scaled %>% 
-    rownames_to_column(var = "language") %>% 
-    select(1:5) 
+dw2.scaled = dw2.scaled %>% 
+    select(-cluster) # Remove o cluster adicionado antes lá em cima via hclust
 
-dists = toclust %>% 
-    select(-language) %>% 
-    dist() # só para plotar silhouetas depois
-
-km = toclust %>% 
-    select(-language) %>% 
+# O agrupamento de fato:
+km = dw2.scaled %>% 
+    select(-repository_language) %>% 
     kmeans(centers = n_clusters, nstart = 20)
 
-km %>% 
-    augment(toclust) %>% 
-    gather(key = "variável", value = "valor", -language, -.cluster) %>% 
-    ggplot(aes(x = `variável`, y = valor, group = language, colour = .cluster)) + 
+# O df em formato longo, para visualização 
+dw2.scaled.km.long = km %>% 
+    augment(dw2.scaled) %>% # Adiciona o resultado de km 
+                            # aos dados originais dw2.scaled em 
+                            # uma variável chamada .cluster
+    gather(key = "variável", 
+           value = "valor", 
+           -repository_language, -.cluster) # = move para long todas as 
+                                            # variávies menos repository_language 
+                                            # e .cluster
+
+dw2.scaled.km.long %>% 
+    ggplot(aes(x = `variável`, y = valor, group = repository_language, colour = .cluster)) + 
     geom_point(alpha = 0.2) + 
     geom_line(alpha = .5) + 
     facet_wrap(~ .cluster) 
 
-#autoplot(km, data = dw2.scaled, size = 3)
 autoplot(km, data = dw2.scaled, label = TRUE)
+
+dists = dw2.scaled %>% 
+    select(-repository_language) %>% 
+    dist() # só para plotar silhouetas depois
 plot(silhouette(km$cluster, dists), col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
 
-dw2.scaled$kmcluster = km$cluster
-dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster", "kmcluster"))
+table(km %>% pull(cluster))
+```
 
-table(km$cluster)
+```{r}
+#summary(dw2.scaled)
+p <- km %>% 
+    augment(dw2.scaled) %>%
+    plot_ly(type = 'parcoords',
+            line = list(color = ~.cluster, 
+                        showScale = TRUE),
+            dimensions = list(
+                #list(range = c(1, 4), label = "cluster", values = ~cluster),
+                list(range = c(-3, 3),
+                     label = 'Forks/repo', values = ~ForkEvent),
+                list(range = c(-3, 3),
+                     label = 'Issues/repo', values = ~IssuesEvent),
+                list(range = c(-6, 3),
+                     label = 'Pushes/repo', values = ~PushEvent),
+                list(range = c(-2, 3),
+                     label = 'Watches/repo', values = ~WatchEvent)
+            )
+    )
+p
 
-km %>% 
-    augment(toclust) %>% 
-    select(language, .cluster) %>% 
-    filter(.cluster == 1)
+```
 
+Qual seria um bom valor de k? Uma medida comumente usada no kmeans é comparar a distância (quadrática) entre o centro dos clusters e o centro dos dados com a distância (quadrática) entre os pontos todos nos dados e o centro dos dados. Aqui o centro dos dados é um ponto imaginário na média de todas as variáveis. Calculamos a distância do centro de cada cluster para o centro dos dados e multiplicamos pelo número de pontos nesse cluster. Somando esse valor para todos os clusters, temos `betweenss` abaixo. Se esse valor for próximo do somatório total das distâncias dos pontos para o centro dos dados (`totss`), os pontos estão próximos do centro de seu cluster. 
+Essa proporção pode ser usada para definir um bom valor de `k`. Quando ela para de crescer, para de valer à pena aumentar `k`.
+
+```{r}
+set.seed(123)
+explorando_k = tibble(k = 1:15) %>% 
+    group_by(k) %>% 
+    do(
+        kmeans(select(dw2.scaled, -repository_language), 
+               centers = .$k, 
+               nstart = 20) %>% glance()
+    )
+
+explorando_k %>% 
+    ggplot(aes(x = k, y = betweenss / totss)) + 
+    geom_line() + 
+    geom_point()
 ```
 
 
@@ -123,8 +202,9 @@ km %>%
 filmes = readr::read_csv("dados/filmes-scarlett-johanssson.csv")
 
 filmes_t = filmes %>% 
-    mutate(`BOX OFFICE` = scale(log10(`BOX OFFICE`)), 
-           RATING = scale(RATING)) 
+    select(-CREDIT) %>% 
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    mutate_each(funs(as.vector(scale(.))), `BOX OFFICE`, RATING)
 
 atribuicoes = tibble(k = 1:6) %>% 
     group_by(k) %>% 
@@ -151,6 +231,24 @@ km = kmeans(select(filmes_t, RATING, `BOX OFFICE`),
 silhouette(km$cluster, dists) %>% 
     plot(col = RColorBrewer::brewer.pal(4, "Set2"))
 ```
+
+```{r}
+set.seed(123)
+explorando_k = tibble(k = 1:15) %>% 
+    group_by(k) %>% 
+    do(
+        kmeans(select(filmes_t, -TITLE), 
+               centers = .$k, 
+               nstart = 20) %>% glance()
+    )
+
+explorando_k %>% 
+    ggplot(aes(x = k, y = betweenss / totss)) + 
+    geom_line() + 
+    geom_point()
+
+```
+
 
 # Mais um exemplo
 
@@ -210,12 +308,6 @@ km
 autoplot(km, data = rs)
 
 autoplot(km, data = rs, frame = TRUE)
-
-```
-
-## Iris
-
-```{r}
 
 ```
 
