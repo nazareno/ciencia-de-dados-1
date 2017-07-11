@@ -1,0 +1,334 @@
+---
+title: "Redução de dimensionalidade"
+author: "Nazareno Andrade"
+date: "maio de 2017"
+output:
+  html_notebook: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse) # ggplot2, tidyr, dplyr, etc
+library(broom) # facilita lidar com modelos e trata o resultado do kmeans como modelo
+library(ggfortify, quietly = TRUE) # plots para modelos
+# http://rpubs.com/sinhrks/basics
+require(GGally, quietly = TRUE)
+library(knitr, quietly = TRUE)
+library(cluster)
+
+theme_set(theme_bw())
+source("github-lib.R")
+```
+
+# Intro e filmes
+
+Tal como vínhamos fazendo antes:
+
+```{r}
+library(ggplot2movies)
+glimpse(movies)
+
+filmes = movies %>% 
+    filter(year >= 1970, 
+           length >= 90, length <= 180, 
+           Action == 1, 
+           budget > 1e5) %>% 
+    mutate(age = (2017 - year), 
+           title = paste0(title, " (", year, ")"), 
+           love = r10/(r10 + r1)) %>%
+    select(title, age, budget, love, votes) %>%
+    filter(complete.cases(.)) # complete.cases recebe um df, e não vetores como entrada
+```
+
+Descritivo express: 
+
+```{r}
+filmes %>% 
+    mutate(budget = budget / 1e6) %>% 
+    gather(key = "variavel", value = "valor", -title) %>% 
+    ggplot(aes(x = valor)) + 
+    geom_histogram(fill = "white", color = "black", bins = 20) + 
+    facet_grid(. ~ variavel, scales = "free_x")
+
+filmes %>% 
+    select(-title) %>% 
+    ggpairs(size = .5, 
+            lower = list(continuous = wrap("points", size = .5, alpha = 0.3)))
+```
+
+```{r}
+filmes_transformado = filmes %>%
+    #select(-title) %>% 
+    mutate(budget = log10(budget), 
+           votes = log10(votes)) %>% 
+    mutate_at(vars(age:votes), funs(as.numeric(scale(.))))
+
+filmes_transformado %>% 
+    gather(key = "variavel", value = "valor", -title) %>% 
+    ggplot(aes(x = valor)) + 
+    geom_histogram(fill = "lightyellow", color = "black", bins = 20) + 
+    facet_grid(. ~ variavel, scales = "free_x")
+```
+
+Agrupando com kmeans
+
+```{r}
+set.seed(123)
+explorando_k = tibble(k = 1:15) %>% 
+    group_by(k) %>% 
+    do(
+        kmeans(select(filmes_transformado, -title), 
+               centers = .$k, 
+               nstart = 20) %>% glance()
+    )
+
+explorando_k %>% 
+    ggplot(aes(x = k, y = tot.withinss)) + 
+    geom_line() + 
+    geom_point()
+```
+
+Usaremos k = 6
+
+```{r}
+filmes_km = filmes_transformado %>% 
+    select(-title) %>% 
+    kmeans(centers = 6, nstart = 20)
+
+filmes_transformado_agrupado = filmes_km %>% 
+    augment(filmes_transformado)
+```
+
+Visualizando com coordenadas paralelas
+
+```{r}
+filmes_km %>% 
+    augment(filmes_transformado) %>% 
+    gather(key = "variável", value = "valor", -title, -.cluster) %>% 
+    ggplot(aes(x = `variável`, y = valor, group = title, colour = .cluster)) + 
+    geom_line(alpha = .2) + 
+    facet_wrap(~ .cluster) 
+
+```
+
+## Visualizando 4d em 2d com PCA
+
+Não deixe de dar uma olhada [nessa explicação visual sobre PCA](http://setosa.io/ev/principal-component-analysis/). 
+
+Encontrando os componentes:
+
+```{r}
+filmes_pca = filmes_transformado %>% 
+    column_to_rownames("title") %>% 
+    prcomp(scale = FALSE) 
+```
+
+Os componentes e sua relação com as variáveis originais
+
+```{r}
+print(as.data.frame(filmes_pca$rotation))
+```
+
+Usando o pacote `broom` para acessar os resultados de `prcomp` via data frames (em lugar de listas com atributos que você nem sempre sabe quais são).
+
+A mesma coisa que a matriz acima, mas em formato long:
+
+```{r}
+tidy(filmes_pca, "variables")
+```
+
+Analisando quanta variância cada PC captura:
+
+```{r}
+tidy(filmes_pca, "pcs")
+
+tidy(filmes_pca, "pcs") %>% 
+    ggplot(aes(x = PC, y = cumulative, label = cumulative)) + 
+    geom_line() + 
+    geom_point() + 
+    geom_text(vjust = 1, hjust = -.1)
+```
+
+O valor dos PCs para cada ponto dos dados originais.
+
+```{r}
+tidy(filmes_pca, "samples") %>% 
+    head()
+```
+
+Como sempre, visualizar é necessário.
+
+```{r}
+# augment é uma mão na roda para combinar modelo com dados que você já tem
+au <- augment(filmes_pca, data = filmes_transformado_agrupado)
+glimpse(au)
+
+au %>% 
+    ggplot(aes(.fittedPC1, .fittedPC2)) +
+    geom_point(size = .7, alpha = .5)
+```
+
+Tentando ver a estrutura de grupos. 
+
+```{r}
+au %>% 
+    ggplot(aes(.fittedPC1, .fittedPC2, color = .cluster)) +
+    geom_point(size = .8, alpha = .7)
+```
+
+Para entender, sempre é uma boa ver exemplos
+
+```{r}
+set.seed(122)
+sample_n(au, 50) %>% # plotando 50 filmes aleatórios
+    ggplot(aes(.fittedPC1, .fittedPC2, color = .cluster)) +
+    geom_point(size = .2) +
+    geom_text(aes(label = title), vjust = 1, hjust = 0, size = 3)
+```
+
+Como nossos labels são grandes, interação ajuda
+
+```{r}
+# No meu RStudio, o gráfico não aparece interativo quando rodo dentro do notebook, 
+# mas aparece se rodo no console ou quando faço knit html.
+library(highcharter)
+p = au %>% 
+    hchart("scatter", hcaes(x = .fittedPC1, y = .fittedPC2, group = .cluster)) %>%
+    hc_tooltip(pointFormat = "<b>{point.title}</b><br>
+             $$$: {point.budget:,.2f}<br>
+             votes: {point.votes:,.2f}<br>
+             love: {point.love:,.2f}<br>
+             age: {point.age:,.2f}")
+p
+```
+
+
+O biplot ajuda muito também. Existe um do R base (`stats`) e um do GGfortify que é mais tunável:
+
+```{r}
+biplot(filmes_pca, scale = 0)
+# autoplot(filmes_pca, label = F, label.size = 3, shape = T)
+autoplot(filmes_pca, label = F, label.size = 3, shape = T, 
+         colour = filmes_km$cluster,
+         loadings = TRUE, loadings.colour = 'darkorange',
+         loadings.label = TRUE, 
+         loadings.label.size = 3)
+
+```
+
+# Github data
+
+```{r}
+dw <- load_github_wide()
+#write.csv(dw, "github-20141.csv", row.names = FALSE)
+summary(dw)
+
+dw <- dw %>% 
+  filter(PushEvent < 50, IssuesEvent < 50, ForkEvent < 18)
+
+ggpairs(select(dw, -repository_language))
+```
+
+As variáveis são bastante assimétricas e concentradas em pequenos valores. Transformá-las para log ajuda na visualização.
+
+```{r}
+# Escala de log 
+dw2 <- log(dw[,2:5])
+dw2$repository_language <- dw$repository_language
+ggpairs(select(dw2, -repository_language))
+```
+
+----
+
+## PCA
+
+```{r}
+row.names(dw2) = dw2$repository_language
+# scale()
+pr.out = prcomp(select(dw2, -repository_language), scale = TRUE) 
+
+kable(pr.out$rotation)
+biplot(pr.out, scale = 0)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE, 
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+# Porcentagem da variância explicada: 
+plot_pve <- function(prout){
+  pr.var <- pr.out$sdev^2
+  pve <- pr.var / sum(pr.var)
+  df = data.frame(x = 1:NROW(pve), y = cumsum(pve))
+  ggplot(df, aes(x = x, y = y)) + 
+    geom_point(size = 3) + 
+    geom_line() + 
+    labs(x='Principal Component', y = 'Cumulative Proportion of Variance Explained')
+}
+
+plot_pve(pr.out)
+```
+
+
+-----
+
+# Prisões nos EUA
+
+```{r}
+glimpse(USArrests)
+row.names(USArrests)
+
+pr.out <- prcomp(USArrests, scale=TRUE)
+
+autoplot(pr.out, label = TRUE)
+
+autoplot(pr.out, label = TRUE, label.size = 3, shape = FALSE, 
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+
+plot_pve(pr.out)
+```
+
+
+----
+## Iris
+
+```{r}
+names(iris)
+glimpse(iris)
+
+ggpairs(select(iris, -Species))
+
+pr.out <- prcomp(select(iris, -Species), scale=TRUE)
+
+plot_pve(pr.out)
+
+autoplot(pr.out, data = iris, colour = 'Species', size = 3,  
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, loadings.label.size = 3)
+
+```
+
+```{r}
+require(Rtsne)
+iris2 = iris %>% 
+    filter(!duplicated(iris)) %>% 
+    mutate_at(vars(-Species), funs(scale)) 
+
+tsne.out = Rtsne(select(iris2, -Species), 
+                 verbose = FALSE, 
+                 perplexity = 20) # as vezes é uma boa brincar com esse parâmetro
+
+df = as.data.frame(tsne.out$Y)
+df$Species = iris2$Species
+
+ggplot(df, aes(x = V1, y = V2, label = Species, color = Species)) + 
+  geom_point(alpha = 0.8, size = 3) 
+
+ggplot(df, aes(x = V1, y = V2, label = Species)) + 
+  geom_point(aes(color = Species), alpha = 0.2, size = 3) 
+
+```

@@ -1,0 +1,223 @@
+---
+title: "Introdução à redução de dimensionalidade"
+output: 
+    html_notebook:
+    toc: TRUE  
+---
+
+```{r}
+library(tidyverse) 
+library(broom) # facilita lidar com modelos como data frames
+library(ggfortify, quietly = TRUE) # plots para modelos
+require(GGally, quietly = TRUE)
+library(knitr, quietly = TRUE)
+library(cluster)
+
+theme_set(theme_bw())
+```
+
+## Do que estamos falando
+
+Lembre que nós como seres humanos conseguimos perceber com muito mais precisão em uma visualização as duas variáveis alocadas à posição horizontal e posição vertical (x e y em um plano cartesiano). 
+
+A aplicação que utilizaremos para entender técnicas de redução de dimensinaliade é reduzir um conjunto de dados que tem mais de duas variáveis a um conjunto de dados com duas variáveis que mostram ainda boa parte da informação (dos padrões) que existem no conjunto de variáveis originais. O que estamos fazendo é uma redução do número de variáveis tentando manter informação: queremos criar duas variáveis artificiais a partir das quais podemos perceber os padrões nas n variáveis que existem nos dados. Isso para que possamos visualizar os dados mais facilmente. 
+
+## Um exemplo com flores
+
+Um exemplo as vezes ajuda a entender a teoria. Não se preocupe em entender bem como é o processo agora; foque em o que está sendo feito. Pegaremos dados sobre espécies de flores que existem no R:
+
+```{r}
+names(iris)
+glimpse(iris)
+
+ggpairs(select(iris, -Species))
+```
+
+Temos 4 variáveis. Repare que há dois grupos de espécies visíveis em vários dos gráficos de dispersão. Mas não conseguimos ver as quatro variáveis para um ponto de uma vez nessa visualização. 
+
+Utilizando redução de dimensionalidade:
+
+```{r}
+pr.out <- prcomp(select(iris, -Species), scale=TRUE)
+
+autoplot(pr.out, data = iris, size = 2,  
+         loadings = FALSE)
+```
+
+### Interpretando
+
+PC1 e PC2 são as duas variáveis que criamos para substituir as 4 que tínhamos antes na visualização. Claro, PC1 e PC2 serão mais úteis se conseguirmos entender a relação delas com as variáveis originais. Na técnica que usamos, que se chama PCA, cada uma dessas variáveis é calculada a partir das 4 que tínhamos inicialmente. Visualmente: 
+
+```{r}
+autoplot(pr.out, data = iris, size = 2, 
+         colour = "grey",
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, 
+         loadings.label.size = 3)
+
+```
+
+Os vetores mostram a relação entre PC1 e PC2 e as variáveis que tínhamos inicialmente. Quanto mais alinhado for o eixo de PC1 e um vetor, maior será a variação nas variáveis dos vetores quando um ponto se mover na direção de PC1 no gráfico. 
+
+Por exemplo, Petal.Length, Petal.Width e Sepal.Length variam bastante quando um ponto está mais à esquerda ou direita no gráfico (direção de PC1), mas não variam muito em função da posição de um ponto no eixo vertical (direção de PC2). Sepal.Length está um pouco relacionada com PC2, enquanto Petal.Length e Petal.Width praticamente não estão. Seguindo a mesma leitura, Sepal.Width varia principalmente na medida que os pontos estão mais acima ou abaixo no gráfico (PC2), mas também em função de quão à esquerda ou direita eles estão. 
+
+Depois de entender os vetores, é possível entender que os pontos embaixo e à esquerda em geral terão valores mais altos de Sepal.Width e valores maix baixos de Petal.Length e Petal.Width. 
+
+Outra forma de ver essa mesma informação é vendo PC1 e PC2 como duas funções das 4 variáveis originais:
+
+```{r}
+tidy(pr.out, "variables") %>% 
+    filter(PC <= 2) %>% 
+    spread(column, value)
+```
+
+Os valores na tabela são os coeficientes, e a leitura é que: $PC1 = 0.58Petal.Length + 0.56Pegal.Width + 0.52Sepal.Length -0.26Sepal.Width$. Ou seja: mudar uma unidade nas 3 primeiras variáveis aumenta PC1 e faz com que um ponto esteja mais à direita no gráfico. Já Sepal.Width tem um efeito negativo e menor por unidade. A unidade aqui é em z-scores: todas as variáveis foram normalizadas com scale antes da redução de dimensionalidade, para que seu efeito ficasse comparável. Examine a equação que descreve a relação entre PC2 e as variáveis originais e veja como é diferente.
+
+### Sobre correlação entre as variáveis e os PCs.
+
+Outra coisa que pode lhe ajudar a entender a posição dos vetores é voltar na nossa primeira figura. Repare lá que Petal.Width e Petal.Length são muito correlacionadas. De certa maneira, isso significa que ambas têm informação parecida -- sabendo o valor de uma para um ponto, sabemos algo sobre o valor da outra, e é possível substituir as duas por uma perdendo apenas um pouco de informação. Ao mesmo tempo, Sepal.Length também é bastante correlacionada com elas. É por isso que PC1 é uma função dessas 3 variáveis. O método de PCA "descobre" que é possível criar uma variável nova que representa a maior parte da informação dessas 3. Como temos outra variávei menos correlacionadas, o PCA cria PC2 para representar praticamente apenas essa outra variável menos correlacionada. 
+
+### Lendo novamente os dados 
+
+Agora que entendemos os PCs, o que podemos fazer com eles? 
+
+```{r}
+autoplot(pr.out, data = iris, 
+         size = 2,  
+         loadings = FALSE)
+```
+
+Podemos entender que existem dois grupos de espécies segundo as 4 variáveis que usamos. No grupo mais à esquerda no gráfico, estão espécies que tem valores no geral parecidos -- e baixos -- de Petal.Width, Petal.Length e Sepal.Length, mas que variam muito nos valores de Sepal.Width que tem. Existe um ponto mais em cima e à esquerda que é estranho nesse grupo também. 
+
+O outro grupo de espécies de flores (a nuvem mais à direita) é formada por flores maiores em termos de pétalas (tanto largura quando comprimento) e maiores em comprimento de sépala, porém também de com todo tamanho de largura de sépala. É esperado também que haja uma correlação entre as 3 primeiras características que mencionamos e essa quarta, para esse grupo. Essa correlação não parece existir para o outro grupo. 
+
+Vejamos. Para o grupo mais à esquerda:
+
+```{r}
+pr.out %>% 
+    augment(data = iris) %>%
+    filter(.fittedPC1 < -0.01) %>% 
+    summarise(correlacao = cor(Petal.Width, Sepal.Width, method = "kendall"))
+```
+
+Para o grupo mais à direita:
+
+```{r}
+pr.out %>% 
+    augment(data = iris) %>%
+    filter(.fittedPC1 > -0.01) %>% 
+    summarise(correlacao = cor(Petal.Width, Sepal.Width, method = "kendall"))
+```
+
+## OK, como funciona PCA?
+
+Agora que entendemos o uso de PCA, podemos falar mais sobre como ele funciona. A ideia central por trás de PCA é a de que *a informação presente em uma variável está na variação do valor dessa variável entre as observações nos dados*. Por exemplo, para um conjunto de dados sobre episódios de séries que tenha as variávels nota e gasto por episódio, se todos os episódios têm a mesma nota, essa a variável não traz nenhuma informação que nos permita diferenciar os episódios. O mesmo acontece para a variável gasto.
+
+Formalizando essa ideia, o que estamos dizendo é que a *variância* da variável é um indicador de quanta informação ela traz. 
+
+Por exemplo, aqui notas não variam em nada, e gastos variam:
+
+```{r}
+set.seed(123)
+episodios1 = tibble(notas = rep(9, 100), 
+                    gastos = rnorm(100, mean = 1e6, sd = 5e5))
+
+episodios1 %>% 
+    ggplot(aes(y = notas, x = gastos)) + 
+    geom_point(size = .5)
+
+episodios1 %>% 
+    summarise(variancia_notas = var(notas), 
+              variancia_gastos = var(gastos))
+```
+
+Neste exemplo, inclusive é possível reduzir as duas dimensões (variáveis) dos dados a uma que é igual à variável gastos sem perder nenhuma informação. Não há nada que diferencie as observações que perderemos. 
+
+Seguindo essa ideia, na hora de criarmos duas variáveis para representar as *n* que temos em um conjunto de dados, PCA se baseia em criar novas variáveis que são combinações das anteriores e que tem a maior variância possível. Essas variáveis são chamadas de componentes principais - Principal Components; e PCA significa Principal Component Analysis. 
+
+A técnica funciona da seguinte maneira: primeiro criamos a variável PC1 como sendo uma função linear das variáveis que existem, o que define um vetor dentro do espaço definido pelas variáveis que existem nos dados, de maneira a que os valores da variável PC1 para as observações tenha a maior variância possível. Em seguida, prosseguimos criando PC2 como sendo um vetor perpendicular a PC1 na direção na qual os valores das observações de PC2 tenham a maior variância possível. E assim por diante, criamos PC3, ..., até PC_n, onde n é o número de variáveis nos dados originais. 
+
+Para nossas aplicacões aqui usaremos apenas PC1 e PC2, para fins de visualização. Mas é bom entender o que acontece na técnica. 
+
+[Aqui tem uma explicação visual sobre esse processo que descrevemos](http://setosa.io/ev/principal-component-analysis/). 
+
+Uma metáfora que pode ajudar: quando tiramos uma foto de uma cena 3D, estamos reduzindo ela a uma imagem 2D. Essa imagem geralmente terá menos dados que a cena 3D. Mas existem ângulos que mostrarão quase todos os detalhes da cena. Esses são ângulos onde as 2 variáveis que estamos definindo definem um plano no qual os pontos que estamos fotografando têm quase toda a variância que existia no espaço 3D original. 
+
+Claro, precisamos conseguir quantificar quanta informação perdemos quando formos de muitas dimensões para apenas 2. PCA faz isso comparando a variância acumulada nos PCs que você usar com a variância total existente com todas as variáveis originais nos dados. 
+
+Para o exemplo das flores que usamos lá atrás:
+
+```{r}
+tidy(pr.out, "pcs")
+```
+
+Graficamente:
+
+```{r}
+tidy(pr.out, "pcs") %>% 
+    ggplot(aes(x = PC, y = cumulative)) + 
+    geom_line() + 
+    geom_point() + 
+    labs(x = "Componentes principais usados", 
+         y = "Prop. cumulativa da variância original \n
+              que esses PCs representam.")
+    
+```
+
+Ou seja, com dois componentes principais conseguimos representar mais de 90% da informação original dos dados. Estamos perdendo detalhes, mas não é muito.
+
+### Mais exemplos
+
+Vejamos alguns exemplo em uma situação onde existem 2 variáveis. Perceba que aqui só faz sentido reduzir de 2 para 1 variável. Mas a lógica é a mesma quando temos mais variáveis. Usaremos 2 pra 1 pra facilitar a visualização.
+
+Aqui temos duas variáveis correlacionadas:
+
+```{r}
+dados1 = tibble(x1 = rnorm(100, mean = 100, sd = 20), 
+                x2 = .7 * x1 + rnorm(100, mean = 50, sd = 10))
+
+dados1 %>% 
+    ggplot(aes(x = x1, y = x2)) + 
+    geom_point(size = .75)
+```
+
+```{r}
+pcs_plot = tidy(prout, "variables") %>% 
+    spread(column, value) %>% 
+    cbind(data.frame(x1_start = 0, x2_start = 0))
+
+dados_plot = prout %>% 
+    augment(data = dados1)
+
+  
+ggplot(data = pcs_plot) + 
+    geom_segment(aes(xend = x1, yend = x2, 
+                     x = x1_start, y = x2_start, 
+                     group = PC), 
+                 colour = "blue", 
+                 arrow = arrow(length = unit(0.25, "cm"))) + 
+    geom_text(aes(x = x1, y = x2, label = paste("PC", PC)), colour = "blue") + 
+    geom_point(data = dados_plot, aes(x = scale(x1), y = scale(x2))) + 
+    labs(x = "x1", y = "x2")
+```
+
+
+
+```{r}
+prout = prcomp(dados1, scale. = TRUE)
+```
+
+Agora vendo no espaço definido por PC1 e PC2, e não nas variáveis originais: 
+
+```{r}
+autoplot(prout, size = 2, 
+         colour = "grey",
+         loadings = TRUE, loadings.colour = 'blue',
+         loadings.label = TRUE, 
+         loadings.label.size = 3)
+```
+
+
+Legal. Agora mude os dados e veja o que acontece com os PCs!
+
+
