@@ -1,0 +1,244 @@
+---
+title: 'Inferência: testes de permutação e p-valores'
+author: "Nazareno Andrade"
+output: 
+  html_notebook:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(GGally)
+theme_set(theme_bw())
+```
+
+# Intro
+
+Técnicas de Reamostragem = {Bootstrap, Permutação, (jacknifing), ...}
+
+Disclaimer: em princípio tudo pode ser feito através de ICs, porém você verá e ouvirá falar muito de p-valores e testes como t-test, mann-withney, wilcoxon e Chi-squared. Então falaremos deles também. 
+
+## Os dados
+
+```{r}
+ratings_raw <- read_csv("dados/ml-latest-small/ratings.csv", col_types = "ccdi")
+movies <- read_csv("dados/ml-latest-small/movies.csv", col_types = "ccc")
+ratings = full_join(ratings_raw, movies, by = "movieId")
+
+glimpse(ratings)
+```
+
+Focaremos em alguns episódios de Star Wars
+
+```{r}
+sw = ratings %>% filter(grepl("Star Wars", title) & 
+                          (grepl("Episode IV -", title) | 
+                             grepl("Episode I -", title) | 
+                             grepl("Episode V -", title)))
+
+ggplot(sw, aes(y = rating, x = title)) + 
+  stat_summary(fun.data = "mean_cl_boot") + 
+  coord_flip()
+
+nomes_episodios = c("Star Wars: Episode I - The Phantom Menace (1999)", 
+                    "", # não usamos
+                    "", # não usamos
+                    "Star Wars: Episode IV - A New Hope (1977)", 
+                    "Star Wars: Episode V - The Empire Strikes Back (1980)")
+ 
+sw1x4 = sw %>% 
+  filter(title %in% c(nomes_episodios[1], 
+                      nomes_episodios[4])) %>% 
+  select(title, rating)
+
+sw4x5 = sw %>% 
+  filter(title %in% c(nomes_episodios[4], 
+                      nomes_episodios[5])) %>% 
+  select(title, rating)
+```
+
+
+# Nosso framework
+
+## Manual
+
+```{r}
+medias1x4 = sw1x4 %>% 
+  group_by(title) %>% 
+  summarise(media = mean(rating))
+
+medias1x4
+
+diff.media.observada.1x4 = diff(medias1x4$media)
+
+medias4x5 = sw4x5 %>% 
+  group_by(title) %>% 
+  summarise(media = mean(rating))
+
+medias4x5
+
+diff.media.observada.4x5 = diff(medias4x5$media)
+```
+
+Episódio 1 x 4
+
+```{r}
+set.seed(1)
+glimpse(sw1x4)
+diffs = replicate(10000, {
+  medias = sw1x4 %>% 
+    mutate(id_embaralhado = sample(title, n())) %>% 
+    group_by(id_embaralhado) %>% 
+    summarise(media = mean(rating))
+  e1 = medias %>% 
+    filter(id_embaralhado == nomes_episodios[1])
+  e4 = medias %>% 
+    filter(id_embaralhado == nomes_episodios[4])
+  return(e1$media - e4$media)
+})
+
+tibble(diferenca = diffs) %>% 
+  ggplot(aes(x = diferenca)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(xintercept = diff.media.observada.1x4)
+
+sum(abs(diffs) > abs(diff.media.observada.1x4)) / length(diffs)
+```
+
+Episódio 4 x 5
+
+```{r}
+set.seed(1)
+glimpse(sw4x5)
+diffs = replicate(10000, {
+  medias = sw4x5 %>% 
+    mutate(id_embaralhado = sample(title, n())) %>% 
+    group_by(id_embaralhado) %>% 
+    summarise(media = mean(rating))
+  e5 = medias %>% 
+    filter(id_embaralhado == nomes_episodios[5])
+  e4 = medias %>% 
+    filter(id_embaralhado == nomes_episodios[4])
+  return(e4$media - e5$media)
+})
+
+tibble(diferenca = diffs) %>% 
+  ggplot(aes(x = diferenca)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(xintercept = diff.media.observada.4x5, size = 2)
+
+# Testamos com > porque a diferença encontrada foi positiva!
+sum(abs(diffs) > abs(diff.media.observada.4x5)) / length(diffs)
+```
+
+ 
+## Pacote resample
+
+```{r}
+library(resample)
+
+permutationTest2(sw1x4, mean(rating), treatment = title)
+permutationTest2(sw4x5, mean(rating), treatment = title)
+
+permutationTest2(sw1x4, median(rating), treatment = title)
+permutationTest2(sw4x5, median(rating), treatment = title)
+```
+
+## Pacote coin
+
+Teste da média
+
+```{r}
+library(coin)
+oneway_test(rating ~ as.factor(title), 
+            data = sw4x5, 
+            distribution = "exact")
+
+oneway_test(rating ~ as.factor(title), 
+            data = sw4x5, 
+            distribution = "exact") %>% 
+  pvalue()
+
+pt = permutationTest2(sw4x5, mean(rating), treatment = title)
+pt$stats$PValue
+
+```
+
+Teste de que a mediana das populações de onde vieram as avaliações dos episódios são diferentes:
+
+```{r}
+median_test(rating ~ as.factor(title), 
+            data = sw4x5, 
+            distribution = "exact")
+
+permutationTest2(sw4x5, median(rating), treatment = title)$stats %>% t()
+```
+
+
+## Por que two-tailed
+
+Normalmente estamos interessados em rejeitar a hipótese nula da igualdade. A igualdade está em torno do zero, e portanto a rejeição acontece quando o valor observado está longe de zero em qualquer direção. Existem testes one-tailed que não dão informação sobre se há diferença nas duras direções. Porém na prática é uma prática requerida que você decida o teste antes de realizá-lo, e é difícil decidir que apenas diferenças em uma direção serão relevantes. Além disso, devido à pressão por resultado, decidir usar one-tailed é sempre um truque que aumenta sua chance de produzir um teste com diferença significativa, o que é claramente uma manipulação na sua metodologia.
+
+# Testes conhecidos que você pode encontrar
+
+# Mann-withney-wilcoxon
+
+Testa se a soma dos ranks das duas amostras são significativamente diferentes.
+
+```{r}
+library("coin")
+wilcox_test(rating ~ as.factor(title), 
+            data = sw4x5, 
+            distribution = "exact") # tirando este parâmetro, usamos fórmula fechada em lugar de permutação
+```
+
+
+## Chi-squared para associação entre duas variávies categóricas
+
+```{r}
+titanic = read.csv("dados/titanic.csv")
+titanic = titanic %>% 
+  mutate(Survived = as.factor(Survived), 
+         Pclass = as.factor(Pclass))
+
+table(titanic$Survived, titanic$Pclass)
+
+chisq.test(titanic$Survived, titanic$Pclass, simulate.p.value = TRUE)
+
+chisq.test(titanic$Survived, titanic$Pclass, simulate.p.value = TRUE)$resid
+
+library(gmodels)
+CrossTable(titanic$Survived, 
+           titanic$Pclass, 
+           prop.t = F,
+           resid = TRUE)
+
+# library(vcd)
+#mosaic(table(titanic$Survived, titanic$Pclass), shade = TRUE)
+```
+
+Outro
+
+```{r}
+titanic2 <- read.csv(url("http://whitlockschluter.zoology.ubc.ca/wp-content/data/chapter09/chap09f1.1Titanic.csv"))
+head(titanic2)
+titanicTable <- table(titanic2$survival, titanic2$sex)
+addmargins(titanicTable)
+
+mosaicplot(t(titanicTable), 
+           cex.axis = 1, 
+           sub = "Sex", 
+           ylab = "Relative frequency", main = "")
+
+library(vcd)
+mosaic(table(titanic2$survival, titanic2$sex))
+mosaic(HairEyeColor, shade = TRUE)
+chisq.test(titanic2$sex, titanic2$survival, simulate.p.value = TRUE)
+```
+

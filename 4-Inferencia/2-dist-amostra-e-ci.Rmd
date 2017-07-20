@@ -1,0 +1,92 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_minimal())
+```
+
+## A população
+
+```{r}
+population = tibble(data = rweibull(1e4, shape = 1, scale = 100))
+
+population %>% 
+  ggplot(aes(x = data)) + 
+  geom_histogram(bins = 50, fill = "white", color = "orange") + 
+  geom_vline(xintercept = mean(population$data), colour = "darkblue") + 
+  geom_text(aes(x = mean(data) + 30, y = 1500, label = "Média"))
+
+mean(population$data)
+```
+
+## A distribuição amostral da média
+
+```{r}
+set.seed(123)
+
+n = 100
+
+medias = tibble(i = 1:1000) %>% 
+  group_by(i) %>% 
+  do(tibble(media = mean(sample(population$data, n)))) %>% 
+  ungroup()
+
+medias$tipo = "Dist. amostral"
+
+medias %>% 
+  ggplot(aes(x = media)) + 
+  geom_histogram(bins = 50, fill = "white", color = "darkred") + 
+  geom_vline(xintercept = mean(population$data), colour = "darkblue") + 
+  geom_text(aes(x = mean(population$data) + 10, y = 50, label = "Média da população"))
+```
+
+## Média de uma amostra
+
+```{r}
+set.seed(123)
+amostra_no_experimento = sample(population$data, n)
+mean(amostra_no_experimento)
+
+medias %>% 
+  ggplot(aes(x = media)) + 
+  geom_histogram(bins = 50, fill = "white", color = "grey") + 
+  geom_vline(xintercept = mean(population$data), colour = "darkblue") + 
+  geom_text(aes(x = mean(population$data) + 10, y = 50, label = "Média da população")) + 
+  geom_vline(xintercept = mean(amostra_no_experimento), colour = "red") + 
+  geom_text(aes(x = mean(amostra_no_experimento) -5, y = 55, label = "Média da amostra")) 
+
+```
+
+## Distribuição dos bootstraps
+
+```{r}
+set.seed(123)
+medias_bootstrap = tibble(i = 1:2000) %>% 
+  group_by(i) %>% 
+  do(tibble(media = mean(sample(amostra_no_experimento, 
+                                NROW(amostra_no_experimento), 
+                                replace = TRUE)))) %>% 
+  ungroup()
+  
+medias_bootstrap$tipo = "Dist. bootstrap"
+
+rbind(medias, medias_bootstrap) %>% 
+  ggplot(aes(x = media, colour = tipo)) +
+  geom_histogram(bins = 50, fill = "white") + 
+  facet_grid(tipo ~ .) + 
+  geom_vline(xintercept = mean(population$data), colour = "darkblue") + 
+  #geom_text(aes(x = mean(population$data) + 10, y = 50, label = "Média da população"), colour = "darkblue") + 
+  geom_vline(xintercept = mean(amostra_no_experimento), colour = "red")  
+  #geom_text(aes(x = mean(amostra_no_experimento) -5, y = 55, label = "Média da amostra"), colour = "red")
+  
+
+```
+
+Se eu sei a distribuição das probabilidades de valores em torno da média da população, tenho uma média amostral e construo essa distribuição em torno da média amostra, eu consigo estimar com que confiança a média da população está próximo à média amostral. 
+
+Se a média amostral é um cachorro que geralmente está próximo de uma árvore (seguindo a distribuição acima) que é a média da população, e não estou vendo a árvore, mas estou vendo o cachorro, eu consigo estimar onde está a árvore.
