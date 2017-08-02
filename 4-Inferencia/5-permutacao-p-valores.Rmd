@@ -42,6 +42,10 @@ sw = ratings %>% filter(grepl("Star Wars", title) &
                              grepl("Episode I -", title) | 
                              grepl("Episode V -", title)))
 
+sw = ratings %>% filter(grepl("Star Wars", title) & 
+                          (grepl("Episode ", title)))
+
+
 ggplot(sw, aes(y = rating, x = title)) + 
   stat_summary(fun.data = "mean_cl_boot") + 
   coord_flip()
@@ -50,11 +54,12 @@ nomes_episodios = c("Star Wars: Episode I - The Phantom Menace (1999)",
                     "", # não usamos
                     "", # não usamos
                     "Star Wars: Episode IV - A New Hope (1977)", 
-                    "Star Wars: Episode V - The Empire Strikes Back (1980)")
+                    "Star Wars: Episode V - The Empire Strikes Back (1980)", 
+                    "Star Wars: Episode VI - Return of the Jedi (1983)")
  
-sw1x4 = sw %>% 
-  filter(title %in% c(nomes_episodios[1], 
-                      nomes_episodios[4])) %>% 
+sw5x6 = sw %>% 
+  filter(title %in% c(nomes_episodios[5], 
+                      nomes_episodios[6])) %>% 
   select(title, rating)
 
 sw4x5 = sw %>% 
@@ -68,15 +73,21 @@ sw4x5 = sw %>%
 
 ## Manual
 
+Vamos guardar as diferenças observadas na nossa amostra para o episódio 5 x 6.
+
 ```{r}
-medias1x4 = sw1x4 %>% 
+medias5x6 = sw5x6 %>% 
   group_by(title) %>% 
   summarise(media = mean(rating))
 
-medias1x4
+medias5x6
 
-diff.media.observada.1x4 = diff(medias1x4$media)
+diff.media.observada.5x6 = diff(medias5x6$media)
+```
 
+Mesma coisa para o episódio 4 x 5.
+
+```{r}
 medias4x5 = sw4x5 %>% 
   group_by(title) %>% 
   summarise(media = mean(rating))
@@ -84,31 +95,38 @@ medias4x5 = sw4x5 %>%
 medias4x5
 
 diff.media.observada.4x5 = diff(medias4x5$media)
+
 ```
 
-Episódio 1 x 4
+
+Agora vejamos o quão frequente seria encontrarmos uma diferença do tamanho que encontramos *se não houvesse associação nenhuma entre qual é o episódio e qual é a avaliação que ele recebe*. A situação onde não existe associação é a *hipótese nula*. Se a diferença que observamos em nossa amostra acontece facilmente na hipótese nula, isso significa que não temos evidência forte de associação: o que observamos acontece também quando não há associação. 
+
+No caso onde a diferença que observamos é improvável na hipótese nula, então observamos algo que é indicativo de associação. Repare que é uma dupla negação: se **não acontece** associação como a que vimos na amostra na situação onde **não** há associação, então temos evidência de que há associação. 
+
+Concretameente, para os Episódios 5 x 6:
 
 ```{r}
 set.seed(1)
-glimpse(sw1x4)
+glimpse(sw5x6)
 diffs = replicate(10000, {
-  medias = sw1x4 %>% 
+  medias = sw5x6 %>% 
     mutate(id_embaralhado = sample(title, n())) %>% 
     group_by(id_embaralhado) %>% 
     summarise(media = mean(rating))
   e1 = medias %>% 
-    filter(id_embaralhado == nomes_episodios[1])
+    filter(id_embaralhado == nomes_episodios[5])
   e4 = medias %>% 
-    filter(id_embaralhado == nomes_episodios[4])
+    filter(id_embaralhado == nomes_episodios[6])
   return(e1$media - e4$media)
 })
-
+glimpse(diffs)
 tibble(diferenca = diffs) %>% 
   ggplot(aes(x = diferenca)) + 
   geom_histogram(bins = 30) + 
-  geom_vline(xintercept = diff.media.observada.1x4)
+  geom_vline(xintercept = diff.media.observada.5x6)
 
-sum(abs(diffs) > abs(diff.media.observada.1x4)) / length(diffs)
+# p-valor!
+sum(abs(diffs) >= abs(diff.media.observada.1x4)) / length(diffs)
 ```
 
 Episódio 4 x 5
@@ -133,21 +151,7 @@ tibble(diferenca = diffs) %>%
   geom_histogram(bins = 30) + 
   geom_vline(xintercept = diff.media.observada.4x5, size = 2)
 
-# Testamos com > porque a diferença encontrada foi positiva!
-sum(abs(diffs) > abs(diff.media.observada.4x5)) / length(diffs)
-```
-
- 
-## Pacote resample
-
-```{r}
-library(resample)
-
-permutationTest2(sw1x4, mean(rating), treatment = title)
-permutationTest2(sw4x5, mean(rating), treatment = title)
-
-permutationTest2(sw1x4, median(rating), treatment = title)
-permutationTest2(sw4x5, median(rating), treatment = title)
+sum(abs(diffs) >= abs(diff.media.observada.4x5)) / length(diffs)
 ```
 
 ## Pacote coin
@@ -157,7 +161,7 @@ Teste da média
 ```{r}
 library(coin)
 oneway_test(rating ~ as.factor(title), 
-            data = sw4x5, 
+            data = sw5x6, 
             distribution = "exact")
 
 oneway_test(rating ~ as.factor(title), 
@@ -165,14 +169,16 @@ oneway_test(rating ~ as.factor(title),
             distribution = "exact") %>% 
   pvalue()
 
-pt = permutationTest2(sw4x5, mean(rating), treatment = title)
-pt$stats$PValue
-
 ```
 
 Teste de que a mediana das populações de onde vieram as avaliações dos episódios são diferentes:
 
 ```{r}
+median_test(rating ~ as.factor(title), 
+            data = sw5x6, 
+            distribution = "exact")
+
+
 median_test(rating ~ as.factor(title), 
             data = sw4x5, 
             distribution = "exact")
@@ -187,17 +193,16 @@ Normalmente estamos interessados em rejeitar a hipótese nula da igualdade. A ig
 
 # Testes conhecidos que você pode encontrar
 
-# Mann-withney-wilcoxon
+## Mann-withney-wilcoxon
 
 Testa se a soma dos ranks das duas amostras são significativamente diferentes.
 
 ```{r}
 library("coin")
 wilcox_test(rating ~ as.factor(title), 
-            data = sw4x5, 
+            data = sw5x6, 
             distribution = "exact") # tirando este parâmetro, usamos fórmula fechada em lugar de permutação
 ```
-
 
 ## Chi-squared para associação entre duas variávies categóricas
 
@@ -240,5 +245,24 @@ library(vcd)
 mosaic(table(titanic2$survival, titanic2$sex))
 mosaic(HairEyeColor, shade = TRUE)
 chisq.test(titanic2$sex, titanic2$survival, simulate.p.value = TRUE)
+```
+
+## Outra alternativa: pacote resample
+
+Os p-valores dão diferente daqueles calculados pelo pacote `coin`, e ainda não descobri a razão exata.
+
+```{r}
+library(resample)
+
+permutationTest2(data = sw5x6, statistic = mean(rating), treatment = title)
+
+permutationTest2(data = sw5x6 %>% filter(title == nomes_episodios[6]), 
+                 statistic = mean(rating), 
+                 data2 = sw5x6 %>% filter(title == nomes_episodios[5]))
+
+permutationTest2(sw4x5, mean(rating), treatment = title)
+
+permutationTest2(sw1x4, median(rating), treatment = title)
+permutationTest2(sw4x5, median(rating), treatment = title)
 ```
 
