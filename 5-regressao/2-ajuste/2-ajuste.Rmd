@@ -17,14 +17,38 @@ alunos = read.csv("../../dados/alunos-ad1.csv") %>%
 ```
 
 
-## Topic 1
+## Ajustando uma função linear
 
-```{r ajuste, exercise=TRUE}
-condados = read_csv("condados-americanos.csv")
-a = 70
-b = -0.6
+Nos dados de condado americano, encontre uma função $y = ax + b$ que se ajuste bem aos dados.
+
+```{r ajuste1, exercise=TRUE, exercise.eval=TRUE}
+condados = read_csv("https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/5-regressao/2-ajuste/condados-americanos.csv", 
+                    col_types = cols(
+                      .default = col_double(),
+                      state = col_character(),
+                      name = col_character()
+                    ))
+a = 0
+b = 30
 
 ggplot(condados, aes(x = hs_grad, y = poverty)) + 
   geom_point(alpha = 0.4) + 
+  geom_abline(intercept = b, slope = a, color  = "red") 
+```
+
+
+## Ajustando outra função linear
+
+```{r ajuste2, exercise=TRUE, exercise.eval=TRUE}
+alunos = read_csv("https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/dados/alunos-ad1.csv") %>% 
+  filter(`Qual a sua altura em centímetros?` > 100)
+
+a = 0
+b = 70
+
+alunos %>% 
+  ggplot(aes(x = `Qual a sua altura em centímetros?`, 
+             y = `Qual seu peso aproximado em kg?`)) + 
+  geom_point() + 
   geom_abline(intercept = b, slope = a, color  = "red") 
 ```
