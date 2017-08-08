@@ -1,0 +1,30 @@
+---
+title: "Tutorial"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+theme_set(theme_bw())
+knitr::opts_chunk$set(echo = FALSE)
+
+alunos = read.csv("../../dados/alunos-ad1.csv") %>% 
+  filter(Qual.a.sua.altura.em.centímetros. > 100)
+```
+
+
+## Topic 1
+
+```{r ajuste, exercise=TRUE}
+condados = read_csv("condados-americanos.csv")
+a = 70
+b = -0.6
+
+ggplot(condados, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4) + 
+  geom_abline(intercept = b, slope = a, color  = "red") 
+```
