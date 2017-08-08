@@ -1,0 +1,257 @@
+---
+title: "regressao linear multivariada"
+author: "Nazareno Andrade"
+output: 
+  html_notebook:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+
+---
+
+```{r}
+suppressWarnings(library(tidyverse))
+
+library(tidyverse)
+theme_set(theme_bw())
+library(GGally)
+library(ggfortify)
+library(broom)
+require(ISLR)
+library(modelr) # devtools::install_github("hadley/modelr")
+
+```
+
+# Os dados
+
+```{r}
+advertising = read_csv("dados/Advertising.csv") %>% rename(campaign = X1)
+advertising %>% 
+  select(-campaign) %>% 
+  ggpairs(lower = list(continuous = wrap("points", alpha = 0.3)))
+```
+
+# Uma regressão linear simples 
+
+### Modelo da relação entre gasto com TV e vendas. 
+
+Linear direto com os dados.
+
+```{r}
+tv.model = lm(Sales ~ TV, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x dados
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = resid), size = 2) +
+  geom_ref_line(h = 0, colour = "grey80")
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+```
+
+```{r}
+d = tibble(x = 1:100)
+
+d %>% 
+  ggplot(aes(x = x)) + 
+  geom_line(aes(y = log(x)), color = "blue") + 
+  geom_line(aes(y = sqrt(x)), color = "red") 
+
+```
+
+
+Transformações.
+
+```{r}
+advertising  = advertising %>% 
+  mutate(TVsqrt = sqrt(TV))
+
+tv.model = lm(Sales ~ TVsqrt, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+adv_augmented %>% 
+  ggplot(aes(x = TVsqrt)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x dados
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = resid), size = 2) +
+  geom_ref_line(h = 0, colour = "grey80")
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+# Depois
+# autoplot(tv.model)
+```
+
+Os resíduos ainda dão sinal de não linearidade. Vamos tentar outra transformação.
+
+```{r}
+advertising  = advertising %>% 
+  mutate(TVlog = log2(TV), 
+         Saleslog = log2(Sales))
+
+advertising %>% 
+  ggplot(aes(x = TVlog, y = Saleslog)) + 
+  geom_point(alpha = .6)
+
+tv.model = lm(Saleslog ~ TVlog, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+adv_augmented %>% 
+  ggplot(aes(x = TVlog)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Saleslog))
+
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = 2^(pred)), size = 2, colour = "blue") + 
+  geom_point(aes(y = 2^(Saleslog)))
+
+# Resíduos x dados
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = resid), size = 2) +
+  geom_ref_line(h = 0, colour = "grey80")
+
+tidy(tv.model, conf.int = TRUE)
+glance(tv.model, conf.int = TRUE)
+
+# Depois
+# autoplot(tv.model)
+```
+
+# Colocando mais variáveis como preditoras
+
+```{r}
+radio.model = lm(Saleslog ~ Radio, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(radio.model) %>% 
+  add_residuals(radio.model)
+
+# Modelo x dados
+adv_augmented %>% 
+  ggplot(aes(x = Radio)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Saleslog))
+
+adv_augmented %>% 
+  ggplot(aes(x = Radio)) + 
+  geom_point(aes(y = resid))
+
+tidy(radio.model, conf.int = TRUE)
+glance(radio.model, conf.int = TRUE)
+```
+
+```{r}
+np.model = lm(Sales ~ Newspaper, data = advertising)
+tidy(np.model, conf.int = TRUE)
+glance(np.model, conf.int = TRUE)
+```
+
+Considerando os preditores ao mesmo tempo. Isso é diferente de considerá-los separadamente:
+
+```{r}
+multi = lm(Saleslog ~ TVlog + Newspaper + Radio, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(multi) %>% 
+  add_residuals(multi)
+
+# adv_augmented %>% 
+#   ggplot(aes(x = TVlog)) + 
+#   geom_line(aes(y = pred), size = 2, colour = "blue") + 
+#   geom_point(aes(y = Saleslog))
+
+adv_augmented %>% 
+  ggplot(aes(x = Sales)) + 
+  geom_point(aes(y = resid))
+
+tidy(multi, conf.int = TRUE)
+glance(multi)
+```
+
+Repare na diferença nas significâncias dos preditores para os modelos univariados e para o multivariado.
+
+Algumas perguntas que queremos responder: 
+
+* O modelo considerando esses preditores é útil em explicar a resposta?
+* Todos os preditores contribuem para explicar a resposta, ou apenas algum?
+* Quão bem ajustado aos dados o modelo está?
+
+# Interações não aditivas
+
+# TODO como modelar interações quando espero que o efeito tenha sinais diferentes?
+
+```{r}
+multi = lm(Saleslog ~ TVlog + Radio + Newspaper + Radio*TVlog + Radio*Newspaper, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(multi) %>% 
+  add_residuals(multi)
+
+adv_augmented %>% 
+  ggplot(aes(x = Sales)) + 
+  geom_point(aes(y = resid))
+
+
+tidy(multi, conf.int = TRUE)
+glance(multi)
+autoplot(multi)
+```
+
+
+Qual o intervalo de confiança da estimativa de `Saleslog` para uma certa combinação de valores de investimento em Rádio, TV e Jornal impresso?
+
+```{r}
+predict(multi, 
+        data.frame(Radio = 10e3, TVlog = log2(20e3), Newspaper = 0), 
+        interval = "predict")
+
+```
+
+# Visualizando o modelo multivariado
+
+```{r}
+
+advertising %>% 
+  data_grid(TVlog = seq_range(TVlog, 10), 
+            Radio = seq_range(Radio, 4), 
+            Newspaper = seq_range(Newspaper, 4)) %>% 
+  add_predictions(multi) %>% 
+  ggplot(aes(x = TVlog, y = pred)) + 
+  geom_line(aes(group = Radio, colour = Radio)) + 
+  facet_grid(. ~ Newspaper)
+
+```
+

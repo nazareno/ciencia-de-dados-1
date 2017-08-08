@@ -1,0 +1,264 @@
+---
+title: "Diagnóstico e consertos para modelos lineares"
+output: html_notebook
+---
+
+```{r}
+suppressWarnings(library(tidyverse))
+library(tidyverse)
+theme_set(theme_bw())
+library(GGally)
+library(ggfortify)
+library(broom)
+library(modelr) # devtools::install_github("hadley/modelr")
+```
+
+
+# Problemas possíveis
+
+1. Non-linearity of the response-predictor relationships. 
+2. Correlation of error terms.
+3. Non-constant variance of error terms.
+4. Outliers.
+5. High-leverage points.
+6. Collinearity.
+
+## Não linearidade na relação entre preditores e variável de resposta
+
+### Caso 1
+
+```{r}
+auto = select(Auto, mpg, horsepower)
+ggpairs(auto)
+
+automodel = lm(mpg ~ horsepower, data = auto)
+
+tidy(automodel, conf.int = TRUE)
+glance(automodel)
+
+grid = auto %>% 
+  add_predictions(model = automodel)
+
+ggplot(grid, aes(horsepower)) + 
+  geom_point(aes(y = mpg), alpha = .8) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(automodel)
+```
+
+Uma solução possível é tentar polinômios de grau mais alto, que têm curva.
+
+```{r}
+ggpairs(auto)
+automodel = lm(mpg ~ horsepower + I(horsepower^2), data = auto)
+
+grid = auto %>% 
+  mutate(horsepower2 = horsepower^2) %>% 
+  add_predictions(model = automodel)
+
+ggplot(grid, aes(horsepower)) + 
+  geom_point(aes(y = mpg), alpha = .8) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+autoplot(automodel)
+
+tidy(automodel)
+glance(automodel)
+```
+
+### Caso 2
+
+(Na minha experiência, esse é mais comum)
+
+```{r}
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_point(alpha = .2)
+
+# Bonus: geom_hex!
+ggplot(diamonds, aes(x = carat, y = price)) +
+  geom_hex()
+
+caratmodel = lm(price ~ carat, data = diamonds)
+
+grid = diamonds %>% 
+  add_predictions(model = caratmodel) %>% 
+  add_residuals(caratmodel)
+
+ggplot(grid, aes(x = carat)) + 
+  geom_hex(aes(y = price)) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+grid %>% 
+  ggplot(aes(x = carat)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 1, alpha = .3)
+
+grid %>% 
+  ggplot(aes(x = price)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 1, alpha = .3)
+
+# autoplot(caratmodel)
+```
+
+Solução: Transformar as variáveis para que elas passem a ter uma relação mais linear. É um processo de tentativa e erro a partir dos formatos observados. Por exemplo, se o formado de $y = f(x)$ é tal que y cresce exponencialmente com x (ou seja, $y = ae^{bx}$), e transformamos $y$ com log, temos que $ln(y) = ln(ae^{bx}) = ln(a) + bx$. Essa expressão modela uma relação linear entre $ln(y)$ e $x$.
+
+Já se a relação $y = f(x)$ é no formato $y = ax^{b}$) podemos transformar $x$ e $y$ com log, temos que $ln(y) = ln(ax^{b}) = ln(a) + b log(x)$. Essa expressão modela uma relação linear entre $ln(y)$ e $ln(x)$.
+
+A mesma lógica pode ser usada para logaritmos em outras bases e para raízes quadráticas ou outras transformadas. As transformações mais comuns a considerar são log(x), sqrt(x), exp(x) e $x^2$.
+
+Aplicando para o caso dos diamantes:
+
+```{r}
+ggplot(diamonds, aes(x = log(carat), y = log(price))) +
+  geom_point(alpha = .2)
+
+diamonds2 = diamonds %>% 
+  transmute(carat = log(carat), 
+            price = log(price))
+
+caratmodel = lm(price ~ carat, data = diamonds2)
+
+grid = diamonds2 %>% 
+  add_predictions(model = caratmodel) %>% 
+  add_residuals(model = caratmodel)
+
+ggplot(grid, aes(x = carat)) + 
+  geom_hex(aes(y = price)) + 
+  geom_line(aes(y = pred), colour = "red", size = 1) 
+
+grid %>% 
+  ggplot(aes(x = carat)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = .5, alpha = .3)
+
+grid %>% 
+  ggplot(aes(x = price)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = .5, alpha = .3)
+
+# autoplot(caratmodel)
+```
+
+
+##  Non-constant variance of error terms
+
+Transformações ou weighted least squares. 
+
+```{r}
+advertising = read_csv("dados/Advertising.csv") %>% rename(campaign = X1)
+advertising %>% 
+  select(-campaign) %>% 
+  ggpairs(lower = list(continuous = wrap("points", alpha = 0.3)))
+```
+
+```{r}
+tv.model = lm(Sales ~ TV, data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(tv.model) %>% 
+  add_residuals(tv.model)
+
+# Modelo x dados
+p_md = adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = pred), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x preditor
+p_rp = adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 2) 
+
+# Resíduos x variável de resposta
+p_rr = adv_augmented %>% 
+  ggplot(aes(x = Sales)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 2)
+
+gridExtra::grid.arrange(p_md, p_rp, p_rr, ncol = 2)
+```
+
+```{r}
+tv.model2 = lm(log(Sales) ~ log(TV), data = advertising)
+
+adv_augmented = advertising %>% 
+  add_predictions(tv.model2) %>% 
+  add_residuals(tv.model2)
+
+# Modelo x dados
+p_md = adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = exp(pred)), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales))
+
+# Resíduos x preditor
+p_rp = adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 2) 
+
+# Resíduos x variável de resposta
+p_rr = adv_augmented %>% 
+  ggplot(aes(x = Sales)) + 
+  geom_ref_line(h = 0, colour = "grey80") + 
+  geom_point(aes(y = resid), size = 2)
+
+gridExtra::grid.arrange(p_md, p_rp, p_rr, ncol = 2)
+
+```
+
+## Outliers e High-leverage points
+
+![outliers](others-figs//3.12.pdf)
+
+![leverage](others-figs//3.13.pdf)
+
+Uma boa: http://setosa.io/ev/ordinary-least-squares-regression/
+
+No plot de studentized residuals, pontos com resíduos normalizados maiores que 3 são suspeitos.
+
+Para leverage, o adequado é olhar pontos com leverage muito acima dos demais, ou maior que (p + 1)/n. (p sendo o número de preditores.)
+
+## Colinearity
+
+![colinearidade](others-figs//3.14.pdf)
+
+Recomendação: VIF < 5 ou VIF < 10
+
+```{r}
+library(car)
+
+mario <- read.csv("marioKart.txt", header = TRUE, sep = "\t")
+mario <- filter(mario, totalPr < 100)
+mlm <- lm(totalPr ~ startPr + cond, data = mario)
+vif(mlm)
+```
+
+```{r}
+multi = lm(Sales ~ TV + Newspaper + Radio, data = advertising)
+vif(multi)
+```
+
+
+```{r}
+credit <- read_csv("dados/Credit.csv") %>% select(-1)
+names(credit)
+
+# credit.model = lm(Balance ~ Age + Student + Married, data = credit)
+
+credit.model = lm(Balance ~ Age + Limit, data = credit)
+
+tidy(credit.model, conf.int = TRUE)
+glance(credit.model)
+
+credit.model2 = lm(Balance ~ Age + Rating + Limit, data = credit)
+tidy(credit.model2, conf.int = TRUE)
+
+vif(credit.model2)
+
+credit %>% 
+  select(Age, Rating, Limit) %>% 
+  cor()
+```

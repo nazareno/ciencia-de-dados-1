@@ -1,0 +1,466 @@
+---
+title: "regressão linear"
+author: "Nazareno Andrade e João Arthur B. Monteiro"
+output: 
+  html_notebook:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+
+---
+
+```{r}
+library(openintro)
+library(tidyverse)
+theme_set(theme_bw())
+library(modelr)
+library(broom)
+```
+
+# A intuição
+
+```{r}
+data(countyComplete)
+
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4)
+
+#ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+#  geom_hex()
+```
+
+No olho:
+
+```{r}
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4) + 
+  geom_abline(intercept = 70, slope = -.65, color  = "red") 
+```
+
+lm  == linear model
+
+```{r}
+ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4) + geom_smooth(method = "lm", se = FALSE)
+```
+
+
+```{r}
+mod <- lm(poverty ~ hs_grad, data = countyComplete)
+
+# sintaxe base R:
+summary(mod)
+confint(mod)
+
+# broom, que acho mais recomendável: 
+tidy(mod, conf.int = TRUE)
+# glance(mod) # depois falaremos desse
+
+countyComplete %>% 
+  add_predictions(model = mod) %>% # add o que o modelo estima p cada hs_grad
+  ggplot(mapping = aes(x = hs_grad, y = poverty)) + 
+  geom_point(alpha = 0.4, size = .5) + 
+  geom_line(aes(y = pred), colour = "red") # + geom_abline(intercept = 70, slope = -.65, color  = "darkblue") 
+```
+
+```{r}
+countyComplete %>% 
+  add_residuals(model = mod) %>% 
+  ggplot(aes(hs_grad, resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
+```
+
+
+## Algumas possíveis relações
+
+```{r}
+## plot 1
+x1 = rnorm(100)
+y1 = rnorm(100)
+
+## plot 2
+x2 <- rnorm(100)
+y2 = -2-2*x2 + rnorm(100, 0, .5)
+x2[1] <- 3; y2[1] <- .2
+
+## plot 3
+x3 <- rnorm(100)
+y3 = -2+2*(x3+1)^2 + rnorm(100, 0, 2)
+
+##plot 4
+x4 <- abs(rnorm(100, mean=2))
+y4 = -2+4*x4 + rnorm(100, 0, x4*2)
+
+## plot all at once
+dat1 <- data.frame(x=c(x1, x2, x3, x4), y=c(y1, y2, y3, y4), graph=rep(1:4, each=100))
+qplot(x, y, data=dat1) + facet_wrap(~graph, scales="free")
+```
+
+## Exemplo de tendência nos resíduos. Isso torna o modelo tendencioso em quase todas as regiões de x. 
+
+```{r}
+mnl <- lm(y3 ~ x3)
+
+predicted3 <- predict(mnl)
+
+ggplot(data.frame(x = x3, y = y3, p = predicted3), aes(x = x, y = y)) + 
+  geom_point() + 
+  geom_line(aes(y = p))
+
+ggplot(mnl, aes(y3, .resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
+```
+
+
+## R^2 é a variância da variável de saída explicada pelo modelo
+
+```{r}
+ml2 <- lm(y2 ~ x2)
+
+# variância de y
+var.y2 <- sum((y2 - mean(y2))^2)
+# variância dos resíduos do modelo
+var.residuals <- sum(ml2$residuals^2)
+
+#calculando e conferindo o R^2
+(var.y2 - var.residuals)/var.y2
+summary(ml2)$r.squared
+
+glance(ml2)
+rsquare(ml2, data.frame(y2, x2))
+```
+
+Em outras situações, outras medidas de erro podem ser úteis
+
+```{r}
+dados = data.frame(x2, y2)
+
+rmse(ml2, dados)
+mae(ml2, dados)
+qae(ml2, dados)
+```
+
+## Bootstrap para inferência sobre os parâmetros do modelo
+
+Trabalhando com uma amostra, geralmente queremos inferir o intervalo de confiança para os coeficientes do modelo que descreve a relação que estamos modelando *na população* de onde veio nossa amostra. 
+
+### Versão 1
+
+```{r}
+library(purrr)
+boot <- modelr::bootstrap(mtcars, 100)
+
+models <- map(boot$strap, ~ lm(mpg ~ wt, data = .))
+tidied <- map_df(models, broom::tidy, .id = "id")
+
+tidied %>% 
+  ggplot(aes(x = estimate)) + 
+  geom_histogram(bins = 30) + 
+  facet_grid(. ~ term, scale = "free")
+```
+
+
+### Versão 2
+
+```{r}
+library(boot)
+library(ISLR) # dados
+attach(Auto)
+```
+
+Usando o pacote `boot` é preciso criar a função que será usada no bootstrap:
+
+```{r}
+boot.fn <- function(data, index) {
+  return(coef(lm(mpg ~ horsepower, data=Auto, subset = index)))
+}
+boot.fn(Auto, 1:392)
+```
+
+```{r}
+regressao.b = boot(Auto, boot.fn, 1000)
+# tidy(regressao.b, conf.int = TRUE, conf.method = "perc") tidy(boot.out) parece bugado em 2017-06-13
+
+plot(regressao.b, index=1) # intercept 
+plot(regressao.b, index=2) # horsepower
+boot.ci(regressao.b, type = "bca", index = 1) 
+boot.ci(regressao.b, type = "bca", index = 2)
+```
+
+### Opção com outro pacote
+
+```{r}
+library("simpleboot")
+modelo.simples = lm(mpg ~ horsepower, data = Auto)
+modelo.boot = lm.boot(modelo.simples, R = 1000)
+summary(modelo.boot)
+perc(modelo.boot, c(.025, .975))
+
+
+# TODO : resampling de resíduos
+#lboot2 <- lm.boot(modelo.simples, R = 1000, rows = FALSE)
+#summary(lboot2)
+```
+
+# Diagnóstico dos modelos
+
+http://stats.stackexchange.com/questions/58141/interpreting-plot-lm
+
+
+```{r}
+library(ggfortify)
+tidy(mod)
+autoplot(mod, label.size = 3, alpha = 0.4)
+# bem mais opções: http://rpubs.com/sinhrks/plot_lm 
+```
+
+
+-------------
+
+```{r}
+library(GGally) # devtools::install_github("ggobi/ggally")
+
+mario <- read_delim("marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
+  mutate(stockPhoto = ifelse(stockPhoto == "yes", TRUE, FALSE))
+names(mario)
+
+mario = mario %>% 
+  filter(totalPr < 100)
+
+mario %>% 
+  select(totalPr, cond, nBids, sellerRate) %>% 
+  ggpairs()
+
+
+```
+
+```{r}
+mario %>% 
+  ggplot(aes(x = nBids, y = totalPr)) + 
+  geom_point(alpha = .5, size = 1)
+
+modelo = lm(totalPr ~ nBids, data = mario)
+
+tidy(modelo, conf.int = TRUE)
+glance(modelo)
+
+mario %>% 
+  add_predictions(model = modelo) %>% 
+  ggplot(aes(x = nBids)) + 
+  geom_point(aes(y = totalPr)) + 
+  geom_line(aes(y = pred), color = "red")
+
+```
+
+```{r}
+mario %>% 
+  filter(startPr > 5) %>% 
+  ggplot(aes(x = startPr, y = totalPr)) + 
+  geom_point(alpha = .5, size = 1)
+
+mario2 = mario %>% 
+  filter(startPr > 5)
+
+modelo = lm(totalPr ~ startPr, data = mario2)
+
+tidy(modelo, conf.int = TRUE)
+glance(modelo)
+
+mario2 %>% 
+  add_predictions(model = modelo) %>% 
+  ggplot(aes(x = startPr)) + 
+  geom_point(aes(y = totalPr)) + 
+  geom_line(aes(y = pred), color = "red")
+
+
+mario2 %>% 
+  add_residuals(model = modelo) %>% 
+  ggplot(aes(x = startPr)) + 
+  geom_point(aes(y = resid))  
+```
+
+
+# Preditor categórico
+
+Usaremos preços de leilões de cartuchos de Mario Kart no eBay.
+
+```{r}
+mario %>% 
+  ggplot(aes(x = cond, y = totalPr)) + 
+  geom_boxplot() + 
+  geom_jitter(width = .1) 
+  
+```
+
+
+```{r}
+library(GGally) # devtools::install_github("ggobi/ggally")
+
+mario <- read_delim("marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
+  mutate(stockPhoto = ifelse(stockPhoto == "yes", TRUE, FALSE))
+names(mario)
+
+mario %>% 
+  select(totalPr, startPr, cond, nBids) %>% 
+  ggpairs()
+
+mario <- filter(mario, totalPr < 100)
+
+mario %>% 
+  select(totalPr, startPr, cond, nBids) %>% 
+  ggpairs()
+```
+
+A relação cond (novo/usado) x preço final do leilão.
+
+```{r}
+mario %>% 
+  ggplot(aes(x = cond, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1)) 
+```
+
+
+```{r}
+mlm <- lm(totalPr ~ cond, data = mario)
+
+mario %>% 
+  add_predictions(mlm) %>% 
+  ggplot(aes(x = cond)) + 
+  geom_jitter(aes(y = totalPr), width = .1, alpha = .3) + 
+  geom_point(aes(y = pred), color = "red", size = 4) 
+
+tidy(mlm, conf.int = T)
+glance(mlm)
+  
+```
+
+## Introdução à regressão multivariada
+
+Outras variáveis
+
+```{r}
+mario %>% 
+  ggplot() + 
+  geom_point(aes(x = startPr, y = totalPr), size = 2, alpha = .7)
+
+mario %>% 
+  ggplot() + 
+  geom_point(aes(x = nBids, y = totalPr), size = 2, alpha = .7)
+```
+
+```{r}
+mlm <- lm(totalPr ~ cond + startPr, data = mario)
+
+tidy(mlm)
+
+model_plot = mario %>% 
+  data_grid(cond, startPr) %>% 
+  add_predictions(mlm)
+
+model_plot %>% 
+  ggplot(aes(x  = startPr, y = pred, colour = cond)) + 
+  geom_line() + 
+  facet_grid(. ~ cond)
+
+model_plot %>% 
+  ggplot(aes(x  = startPr, y = pred, colour = cond)) + 
+  geom_line() + 
+  geom_point(data = mario, aes(y = totalPr)) + 
+  facet_grid(. ~ cond)
+
+tidy(mlm, conf.int = T)
+glance(mlm)
+```
+
+
+```{r}
+mario = mario %>% 
+  add_residuals(mlm)
+
+ggplot(mario, aes(resid)) + 
+  geom_freqpoly(binwidth = 2)
+
+ggplot(mario, aes(cond, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+ggplot(mario, aes(startPr, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+ggplot(mario, aes(totalPr, resid)) + 
+  geom_ref_line(h = 0, colour = "grey") +
+  geom_point(position = position_jitter(width = 0.1))
+
+```
+
+```{r}
+# ggplot(mario, aes(nBids, resid)) + 
+#   geom_ref_line(h = 0, colour = "grey") +
+#   geom_point(position = position_jitter(width = 0.1))
+# 
+# ggplot(mario, aes(x = totalPr)) + 
+#   geom_line(aes(y = pred), colour = "green") + 
+#   geom_point(aes(y = totalPr), alpha = 0.6)
+
+```
+
+
+## Sobre múltiplas variáveis juntas num modelo
+
+```{r}
+mlm1 <- lm(totalPr ~ stockPhoto, data = mario)
+
+mario %>% 
+  add_predictions(mlm1) %>% 
+  ggplot(aes(x = stockPhoto, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1))  + 
+  geom_point(aes(y = pred), size = 4, colour = "red")
+
+tidy(mlm1, conf.int = T)
+glance(mlm1)
+
+mlm2 <- lm(totalPr ~ stockPhoto + cond, data = mario)
+
+mario %>% 
+  add_predictions(mlm2) %>% 
+  ggplot(aes(x = stockPhoto, y = totalPr)) + 
+  geom_violin() + 
+  geom_point(position = position_jitter(width = 0.1))  + 
+  geom_point(aes(y = pred), size = 4, colour = "red") + 
+  geom_line(aes(y = pred, group = 1), size = 1, colour = "red") + 
+  facet_grid(. ~ cond)
+
+tidy(mlm2, conf.int = T)
+glance(mlm2)
+```
+
+```{r}
+mario %>% 
+  mutate(c  = as.character(stockPhoto)) %>% 
+  select(cond, totalPr, c) %>% 
+  ggpairs()
+```
+
+
+## Variáveis numéricas e categóricas juntas
+
+```{r}
+mlm <- lm(totalPr ~ startPr + cond, data = mario)
+tidy(mlm)
+glance(mlm)
+```
+
+### Sobre causalidade
+
+```{r}
+mlm <- lm(totalPr ~ nBids + cond, data = mario)
+tidy(mlm)
+glance(mlm)
+```
+
