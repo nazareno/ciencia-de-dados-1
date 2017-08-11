@@ -1,0 +1,205 @@
+---
+title: "Relações, formatos e resíduos"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+theme_set(theme_bw())
+library(broom)
+library(modelr)
+
+x1 = rnorm(100)
+y1 = rnorm(100)
+dataset1 = tibble(x = x1, y = y1)
+
+x2 <- rnorm(100)
+y2 = -2-2*x2 + rnorm(100, 0, .5)
+x2[1] <- 3; y2[1] <- .2
+dataset2 = tibble(x = x2, y = y2)
+
+## plot 3
+x3 <- rnorm(100)
+y3 = -2+2*(x3+1)^2 + rnorm(100, 0, 2)
+dataset3 = tibble(x = x3, y = y3)
+
+##plot 4
+x4 <- abs(rnorm(100, mean=2))
+y4 = -2+4*x4 + rnorm(100, 0, x4*2)
+dataset4 = tibble(x = x4, y = y4)
+```
+
+
+## Diferentes formatos de relações
+
+### O formato
+
+Tem infinitos formatos para as relações. Vamos usar 4 exemplos:
+
+```{r}
+dat1 <- data.frame(x=c(x1, x2, x3, x4), y=c(y1, y2, y3, y4), graph=rep(1:4, each=100))
+qplot(x, y, data=dat1) + facet_wrap(~graph, scales="free")
+```
+
+
+## Relação 1
+
+Os dados tem esse formato: 
+
+```{r, fig.width = 4, fig.height= 3}
+dataset1 %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) 
+```
+
+Faça o melhor fit que você puder para os dados. Abaixo `lm` cria um modelo, e você pode alterá-lo na mão se quiser testar o que acontece. 
+
+```{r relacao1, exercise=TRUE, fig.height= 3, fig.width=4}
+dados = dataset1 
+modelo = lm(y ~ x, data = dados)
+tidy(modelo, conf.int = T) %>% 
+  select(term, estimate, conf.low, conf.high)
+
+# descomente e mude os coeficientes na mão. o 1o é o intercept, o 2o slope
+# modelo$coefficients = c(1, 2)
+
+rquadrado = round(rsquare(model = modelo, data = dados), digits = 3)
+
+dados %>% 
+  add_predictions(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) + 
+  geom_line(aes(y = pred), colour = "orange", size = 1.2) + 
+  ggtitle(paste0("Dado (pontos) x modelo (linha). \nR^2 = ", rquadrado))
+
+dataset1 %>% 
+  add_residuals(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = resid), colour = "coral", size = 2) + 
+  geom_hline(yintercept = 0, colour = "grey") + 
+  ylab("Resíduo (y_dados - y_modelo)") + 
+  ggtitle("Resíduos do modelo")
+```
+
+## Relação 2
+
+Os dados tem um formato diferente
+
+```{r, fig.width = 4, fig.height= 3}
+dataset2 %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) 
+```
+
+Faça o melhor fit que você puder para os dados. Abaixo `lm` cria um modelo, e você pode alterá-lo na mão se quiser testar o que acontece. 
+
+```{r relacao2, exercise=TRUE, fig.height= 3, fig.width=4}
+dados = dataset2
+# dados = dataset2[-1,] # DESCOMENTE E TESTE
+
+modelo = lm(y ~ x, data = dados)
+tidy(modelo, conf.int = T) %>% 
+  select(term, estimate, conf.low, conf.high)
+
+# descomente e mude os coeficientes na mão. o 1o é o intercept, o 2o slope
+# modelo$coefficients = c(1, 2)
+
+rquadrado = round(rsquare(model = modelo, data = dados), digits = 3)
+
+dados %>% 
+  add_predictions(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) + 
+  geom_line(aes(y = pred), colour = "orange", size = 1.2) + 
+  ggtitle(paste0("Dado (pontos) x modelo (linha). \nR^2 = ", rquadrado))
+
+dados %>% 
+  add_residuals(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = resid), colour = "coral", size = 2) + 
+  geom_hline(yintercept = 0, colour = "grey") + 
+  ylab("Resíduo (y_dados - y_modelo)") + 
+  ggtitle("Resíduos do modelo")
+```
+
+## Relação 3
+
+Mais um novo formato
+
+```{r, fig.width = 4, fig.height= 3}
+dataset3 %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) 
+```
+
+Faça o melhor fit que você puder para os dados. Abaixo `lm` cria um modelo, e você pode alterá-lo na mão se quiser testar o que acontece. 
+
+```{r relacao3, exercise=TRUE, fig.height= 3, fig.width=4}
+dados = dataset3
+modelo = lm(y ~ x, data = dados)
+tidy(modelo, conf.int = T) %>% 
+  select(term, estimate, conf.low, conf.high)
+
+# descomente e mude os coeficientes na mão. o 1o é o intercept, o 2o slope
+# modelo$coefficients = c(1, 2)
+
+rquadrado = round(rsquare(model = modelo, data = dados), digits = 3)
+
+dados %>% 
+  add_predictions(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) + 
+  geom_line(aes(y = pred), colour = "orange", size = 1.2) + 
+  ggtitle(paste0("Dado (pontos) x modelo (linha). \nR^2 = ", rquadrado))
+
+dados %>% 
+  add_residuals(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = resid), colour = "coral", size = 2) + 
+  geom_hline(yintercept = 0, colour = "grey") + 
+  ylab("Resíduo (y_dados - y_modelo)") + 
+  ggtitle("Resíduos do modelo")
+```
+
+## Relação 4
+
+A última :)
+
+```{r, fig.width = 4, fig.height= 3}
+dataset4 %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) 
+```
+
+Faça o melhor fit que você puder para os dados. Abaixo `lm` cria um modelo, e você pode alterá-lo na mão se quiser testar o que acontece. 
+
+```{r relacao4, exercise=TRUE, fig.height= 3, fig.width=4}
+dados = dataset4
+modelo = lm(y ~ x, data = dados)
+tidy(modelo, conf.int = T) %>% 
+  select(term, estimate, conf.low, conf.high)
+
+# descomente e mude os coeficientes na mão. o 1o é o intercept, o 2o slope
+# modelo$coefficients = c(1, 2)
+
+rquadrado = round(rsquare(model = modelo, data = dados), digits = 3)
+
+dados %>% 
+  add_predictions(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = y), colour = "brown4", size = 2) + 
+  geom_line(aes(y = pred), colour = "orange", size = 1.2) + 
+  ggtitle(paste0("Dado (pontos) x modelo (linha). \nR^2 = ", rquadrado))
+
+dados %>% 
+  add_residuals(modelo) %>% 
+  ggplot(aes(x = x)) + 
+  geom_point(aes(y = resid), colour = "coral", size = 2) + 
+  geom_hline(yintercept = 0, colour = "grey") + 
+  ylab("Resíduo (y_dados - y_modelo)") + 
+  ggtitle("Resíduos do modelo")
+```
+

@@ -1,0 +1,50 @@
+---
+title: "Regressão com Mario Kart"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+theme_set(theme_bw())
+library(modelr)
+library(broom)
+```
+
+```{r}
+mario <- read_delim("marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
+  mutate(stockPhoto = ifelse(stockPhoto == "yes", TRUE, FALSE))
+mario <- filter(mario, totalPr < 100)
+
+names(mario)
+
+mario %>% 
+  select(-title, -wheels) %>% 
+  ggpairs()
+
+```
+
+```{r}
+mlm <- lm(totalPr ~ cond + startPr, data = mario)
+
+tidy(mlm)
+
+model_plot = mario %>% 
+  data_grid(cond, startPr) %>% 
+  add_predictions(mlm)
+
+model_plot %>% 
+  ggplot(aes(x  = startPr, colour = cond)) + 
+  geom_line(y = pred) + 
+  facet_grid(. ~ cond)
+
+model_plot %>% 
+  ggplot(aes(x  = startPr, colour = cond)) + 
+  geom_line(aes(y = pred)) + 
+  geom_point(data = mario, aes(y = totalPr)) + 
+  facet_grid(. ~ cond)
+
+tidy(mlm, conf.int = T)
+glance(mlm)
+```
+
+

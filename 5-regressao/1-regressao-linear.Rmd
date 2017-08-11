@@ -59,7 +59,7 @@ No olho:
 ```{r}
 ggplot(countyComplete, aes(x = hs_grad, y = poverty)) + 
   geom_point(alpha = 0.4) + 
-  geom_abline(intercept = 70, slope = -.65, color  = "red") 
+  geom_abline(intercept = 69, slope = -.65, color  = "red") 
 ```
 
 lm  == linear model
@@ -79,13 +79,14 @@ confint(mod)
 
 # broom, que acho mais recomendável: 
 tidy(mod, conf.int = TRUE)
-# glance(mod) # depois falaremos desse
+glance(mod) # depois falaremos desse
 
 countyComplete %>% 
   add_predictions(model = mod) %>% # add o que o modelo estima p cada hs_grad
   ggplot(mapping = aes(x = hs_grad, y = poverty)) + 
   geom_point(alpha = 0.4, size = .5) + 
-  geom_line(aes(y = pred), colour = "red") # + geom_abline(intercept = 70, slope = -.65, color  = "darkblue") 
+  geom_line(aes(y = pred), colour = "red")  + 
+  geom_abline(intercept = 69, slope = -.65, color  = "darkblue") 
 ```
 
 ```{r}
@@ -96,75 +97,27 @@ countyComplete %>%
   geom_hline(yintercept = 0, colour = "blue")
 ```
 
-
-## Algumas possíveis relações
-
-```{r}
-## plot 1
-x1 = rnorm(100)
-y1 = rnorm(100)
-
-## plot 2
-x2 <- rnorm(100)
-y2 = -2-2*x2 + rnorm(100, 0, .5)
-x2[1] <- 3; y2[1] <- .2
-
-## plot 3
-x3 <- rnorm(100)
-y3 = -2+2*(x3+1)^2 + rnorm(100, 0, 2)
-
-##plot 4
-x4 <- abs(rnorm(100, mean=2))
-y4 = -2+4*x4 + rnorm(100, 0, x4*2)
-
-## plot all at once
-dat1 <- data.frame(x=c(x1, x2, x3, x4), y=c(y1, y2, y3, y4), graph=rep(1:4, each=100))
-qplot(x, y, data=dat1) + facet_wrap(~graph, scales="free")
-```
-
-## Exemplo de tendência nos resíduos. Isso torna o modelo tendencioso em quase todas as regiões de x. 
-
-```{r}
-mnl <- lm(y3 ~ x3)
-
-predicted3 <- predict(mnl)
-
-ggplot(data.frame(x = x3, y = y3, p = predicted3), aes(x = x, y = y)) + 
-  geom_point() + 
-  geom_line(aes(y = p))
-
-ggplot(mnl, aes(y3, .resid)) + 
-  geom_point(alpha = .4) + 
-  geom_hline(yintercept = 0, colour = "blue")
-```
-
-
 ## R^2 é a variância da variável de saída explicada pelo modelo
 
 ```{r}
-ml2 <- lm(y2 ~ x2)
-
 # variância de y
-var.y2 <- sum((y2 - mean(y2))^2)
+var.y2 <- sum((countyComplete$poverty - mean(countyComplete$poverty))^2)
 # variância dos resíduos do modelo
-var.residuals <- sum(ml2$residuals^2)
+var.residuals <- sum(mod$residuals^2)
 
 #calculando e conferindo o R^2
 (var.y2 - var.residuals)/var.y2
-summary(ml2)$r.squared
+rsquare(mod, data = countyComplete)
 
-glance(ml2)
-rsquare(ml2, data.frame(y2, x2))
+glance(mod)
 ```
 
 Em outras situações, outras medidas de erro podem ser úteis
 
 ```{r}
-dados = data.frame(x2, y2)
-
-rmse(ml2, dados)
-mae(ml2, dados)
-qae(ml2, dados)
+rmse(mod, countyComplete)
+mae(mod, countyComplete)
+qae(mod, countyComplete)
 ```
 
 ## Bootstrap para inferência sobre os parâmetros do modelo
@@ -247,17 +200,16 @@ autoplot(mod, label.size = 3, alpha = 0.4)
 ```{r}
 library(GGally) # devtools::install_github("ggobi/ggally")
 
-mario <- read_delim("marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
+mario <- read_delim("dados/marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
   mutate(stockPhoto = ifelse(stockPhoto == "yes", TRUE, FALSE))
 names(mario)
 
-mario = mario %>% 
-  filter(totalPr < 100)
+#mario = mario %>% 
+#  filter(totalPr < 100)
 
 mario %>% 
   select(totalPr, cond, nBids, sellerRate) %>% 
   ggpairs()
-
 
 ```
 
