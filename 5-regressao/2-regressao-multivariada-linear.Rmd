@@ -26,7 +26,8 @@ library(modelr) # devtools::install_github("hadley/modelr")
 # Os dados
 
 ```{r}
-advertising = read_csv("dados/Advertising.csv") %>% rename(campaign = X1)
+advertising = read_csv("dados/Advertising.csv") %>% 
+  rename(campaign = X1)
 advertising %>% 
   select(-campaign) %>% 
   ggpairs(lower = list(continuous = wrap("points", alpha = 0.3)))
@@ -40,7 +41,7 @@ Linear direto com os dados.
 
 ```{r}
 tv.model = lm(Sales ~ TV, data = advertising)
-
+tidy(tv.model)
 adv_augmented = advertising %>% 
   add_predictions(tv.model) %>% 
   add_residuals(tv.model)
@@ -61,99 +62,113 @@ tidy(tv.model, conf.int = TRUE)
 glance(tv.model, conf.int = TRUE)
 
 ```
+
+A função linear não se adequa lá muito bem. Outras que poderíamos usar:
 
 ```{r}
 d = tibble(x = 1:100)
 
 d %>% 
   ggplot(aes(x = x)) + 
-  geom_line(aes(y = log(x)), color = "blue") + 
+  geom_line(aes(y = log2(x)), color = "blue") + 
   geom_line(aes(y = sqrt(x)), color = "red") 
 
 ```
 
+## Testando Transformações
 
-Transformações.
+`y ~ log(x)` ainda não parece linear, e tem heteroscedasticidade.
 
 ```{r}
-advertising  = advertising %>% 
-  mutate(TVsqrt = sqrt(TV))
-
-tv.model = lm(Sales ~ TVsqrt, data = advertising)
-
-adv_augmented = advertising %>% 
-  add_predictions(tv.model) %>% 
-  add_residuals(tv.model)
-
-# Modelo x dados
-adv_augmented %>% 
-  ggplot(aes(x = TVsqrt)) + 
-  geom_line(aes(y = pred), size = 2, colour = "blue") + 
-  geom_point(aes(y = Sales))
-
-adv_augmented %>% 
+advertising %>% 
+  mutate(TV = log(TV)) %>% 
   ggplot(aes(x = TV)) + 
-  geom_line(aes(y = pred), size = 2, colour = "blue") + 
-  geom_point(aes(y = Sales))
-
-# Resíduos x dados
-adv_augmented %>% 
-  ggplot(aes(x = TV)) + 
-  geom_point(aes(y = resid), size = 2) +
-  geom_ref_line(h = 0, colour = "grey80")
-
-tidy(tv.model, conf.int = TRUE)
-glance(tv.model, conf.int = TRUE)
-
-# Depois
-# autoplot(tv.model)
+  geom_point(aes(y = Sales)) + 
+  ggtitle("y ~ log(x)")
 ```
 
-Os resíduos ainda dão sinal de não linearidade. Vamos tentar outra transformação.
+`log(y) ~ log(x)` faz a relação se parecer muito mais com uma relação linear.
+
+```{r}
+advertising %>% 
+  mutate(Sales = log(Sales), 
+         TV = log(TV)) %>% 
+  ggplot(aes(x = TV)) + 
+  geom_point(aes(y = Sales)) + 
+  ggtitle("log(y) ~ log(x)")
+```
+
+## Usando a relação entre as variáveis transformadas para ajustar um modelo linear
 
 ```{r}
 advertising  = advertising %>% 
-  mutate(TVlog = log2(TV), 
-         Saleslog = log2(Sales))
+  mutate(TV2 = log2(TV), 
+         Sales2 = log2(Sales))
 
-advertising %>% 
-  ggplot(aes(x = TVlog, y = Saleslog)) + 
-  geom_point(alpha = .6)
+tv.model = lm(Sales2 ~ TV2, data = advertising)
+```
 
-tv.model = lm(Saleslog ~ TVlog, data = advertising)
+Para visualizar o modelo, usarmeos um data frame com os dados originais e com as estimativas do modelo e resíduos para os valores nos dados. 
 
+```{r}
 adv_augmented = advertising %>% 
   add_predictions(tv.model) %>% 
   add_residuals(tv.model)
+```
 
+Visualizando. Primeiro `log(Sales) ~ log(TV)`:
+
+```{r}
 # Modelo x dados
 adv_augmented %>% 
-  ggplot(aes(x = TVlog)) + 
+  ggplot(aes(x = TV2)) + 
   geom_line(aes(y = pred), size = 2, colour = "blue") + 
-  geom_point(aes(y = Saleslog))
-
-adv_augmented %>% 
-  ggplot(aes(x = TV)) + 
-  geom_line(aes(y = 2^(pred)), size = 2, colour = "blue") + 
-  geom_point(aes(y = 2^(Saleslog)))
+  geom_point(aes(y = Sales2))
 
 # Resíduos x dados
 adv_augmented %>% 
-  ggplot(aes(x = TV)) + 
+  ggplot(aes(x = TV2)) + 
   geom_point(aes(y = resid), size = 2) +
   geom_ref_line(h = 0, colour = "grey80")
+```
 
+E como é esse modelo?
+
+```{r}
 tidy(tv.model, conf.int = TRUE)
 glance(tv.model, conf.int = TRUE)
+```
 
-# Depois
-# autoplot(tv.model)
+O modelo é $log_2(Sales) = 1.3 + 0.35*log_2(TV)$. Isso é equivalente a $2^{log_2(Sales)} = 2^{1.3 + 0.35*log_2(TV)}$ que equivale a $Sales = 2^{1.3}*TV^{0.35}$. Testando: 
+
+
+```{r}
+## estimativa do modelo
+p = predict(tv.model, 
+            data.frame(TV2 = log2(100)))
+## Como o modelo estima log2(Sales), para ver Sales, fazemos o inverso de log2:
+paste("Estimativa do modelo:", 2**p)
+
+## estimativa na mão
+paste("Estimativa da fórmula:", (2**1.3059)*100**.355)
+```
+
+Uma boa ideia é visualizar `Sales` em função de `TV`, ambas sem transformação. Repare que os ranges de TV e do eixo y estão ambos como nas variáveis originais. Estamos visualizando `2**pred` no eixo vertical para compensar o fato de que `pred`, vinda do modelo, é um valor estimado para `log2(Sales)`.
+
+```{r}
+adv_augmented %>% 
+  ggplot(aes(x = TV)) + 
+  geom_line(aes(y = 2**(pred)), size = 2, colour = "blue") + 
+  geom_point(aes(y = Sales)) + 
+  ylab("Sales")
 ```
 
 # Colocando mais variáveis como preditoras
 
+## Se colocarmos apenas `Radio`
+
 ```{r}
-radio.model = lm(Saleslog ~ Radio, data = advertising)
+radio.model = lm(Sales2 ~ Radio, data = advertising)
 
 adv_augmented = advertising %>% 
   add_predictions(radio.model) %>% 
@@ -163,7 +178,7 @@ adv_augmented = advertising %>%
 adv_augmented %>% 
   ggplot(aes(x = Radio)) + 
   geom_line(aes(y = pred), size = 2, colour = "blue") + 
-  geom_point(aes(y = Saleslog))
+  geom_point(aes(y = Sales2))
 
 adv_augmented %>% 
   ggplot(aes(x = Radio)) + 
@@ -173,33 +188,93 @@ tidy(radio.model, conf.int = TRUE)
 glance(radio.model, conf.int = TRUE)
 ```
 
+Ou apenas `Newspaper`
+
 ```{r}
 np.model = lm(Sales ~ Newspaper, data = advertising)
 tidy(np.model, conf.int = TRUE)
 glance(np.model, conf.int = TRUE)
 ```
 
-Considerando os preditores ao mesmo tempo. Isso é diferente de considerá-los separadamente:
+## Considerando os preditores ao mesmo tempo. 
+
+Lembre que isso é diferente de considerá-los separadamente.
+
+Antes de fazer o ajuste do modelo, vamos tirar o ponto anômalo que dá um resíduo muito maior (em módulo) que todos os demais pontos:
 
 ```{r}
-multi = lm(Saleslog ~ TVlog + Newspaper + Radio, data = advertising)
+advertising = filter(advertising, TV > 3)
+```
+
+Agora, ajustando um modelo multivariado considerando efeitos de TV, Newspaper e Radio independentemente em Sales:
+
+```{r}
+multi = lm(Sales2 ~ TV2 + Newspaper + Radio, data = advertising)
 
 adv_augmented = advertising %>% 
   add_predictions(multi) %>% 
   add_residuals(multi)
+```
 
-# adv_augmented %>% 
-#   ggplot(aes(x = TVlog)) + 
-#   geom_line(aes(y = pred), size = 2, colour = "blue") + 
-#   geom_point(aes(y = Saleslog))
+Precisamos visualizar os resíduos em função de cada preditor:
 
+```{r}
 adv_augmented %>% 
-  ggplot(aes(x = Sales)) + 
+  ggplot(aes(x = TV2)) + 
   geom_point(aes(y = resid))
 
-tidy(multi, conf.int = TRUE)
+adv_augmented %>% 
+  ggplot(aes(x = Newspaper)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = Radio)) + 
+  geom_point(aes(y = resid))
+```
+
+Como não há nada alarmante em termos de valores extremos, relações obviamente não-lineares e nem heteroscedasticidade, vamos examinar os coeficientes e o modelo. Os coeficientes e fit:
+
+```{r}
+tidy(multi, conf.int = TRUE) %>% 
+  select(-std.error, -p.value)
 glance(multi)
 ```
+
+## Visualizando o modelo multivariado
+
+Caso apliquemos o modelo em todos os pontos de `avertising`, teremos várias estimativas para um mesmo valor de `Radio`, já que existem várias combinações de um dado valor dessa variável com as demais variáveis de entrada no modelo. Isso fica confuso muito fácil. 
+
+Para controlar que combinações de valores plotaremos precisamos _gerar o data frame de entrada para a visualização_:
+
+```{r}
+para_plotar_modelo = advertising %>% 
+  data_grid(TV2 = seq_range(TV2, 10), # Crie um vetor de 10 valores no range de TV2
+            Radio = seq_range(Radio, 4), # Vetor de 4 valores no range de Radio 
+            Newspaper = seq_range(Newspaper, 3)) %>% 
+  add_predictions(multi)
+
+glimpse(para_plotar_modelo)
+```
+
+```{r}
+para_plotar_modelo %>% 
+  ggplot(aes(x = TV2, y = pred)) + 
+  geom_line(aes(group = Radio, colour = Radio)) + 
+  facet_grid(. ~ Newspaper)
+```
+
+
+Converter para Sales é exponenciar Sales2. Caso queiramos vê-la em função de TV (e não TV2), exponenciamos TV2 também.
+
+```{r}
+para_plotar_modelo %>% 
+  ggplot(aes(x = 2**TV2, y = 2**pred)) + 
+  geom_line(aes(group = Radio, colour = Radio)) + 
+  facet_grid(. ~ Newspaper)
+```
+
+
+## Sobre modelos uni x multivariados
 
 Repare na diferença nas significâncias dos preditores para os modelos univariados e para o multivariado.
 
@@ -211,8 +286,6 @@ Algumas perguntas que queremos responder:
 
 # Interações não aditivas
 
-# TODO como modelar interações quando espero que o efeito tenha sinais diferentes?
-
 ```{r}
 multi = lm(Saleslog ~ TVlog + Radio + Newspaper + Radio*TVlog + Radio*Newspaper, data = advertising)
 
@@ -221,15 +294,22 @@ adv_augmented = advertising %>%
   add_residuals(multi)
 
 adv_augmented %>% 
-  ggplot(aes(x = Sales)) + 
+  ggplot(aes(x = TVlog)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = Radio)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = Radio*TVlog)) + 
   geom_point(aes(y = resid))
 
 
 tidy(multi, conf.int = TRUE)
 glance(multi)
-autoplot(multi)
+#autoplot(multi)
 ```
-
 
 Qual o intervalo de confiança da estimativa de `Saleslog` para uma certa combinação de valores de investimento em Rádio, TV e Jornal impresso?
 
@@ -237,21 +317,6 @@ Qual o intervalo de confiança da estimativa de `Saleslog` para uma certa combin
 predict(multi, 
         data.frame(Radio = 10e3, TVlog = log2(20e3), Newspaper = 0), 
         interval = "predict")
-
-```
-
-# Visualizando o modelo multivariado
-
-```{r}
-
-advertising %>% 
-  data_grid(TVlog = seq_range(TVlog, 10), 
-            Radio = seq_range(Radio, 4), 
-            Newspaper = seq_range(Newspaper, 4)) %>% 
-  add_predictions(multi) %>% 
-  ggplot(aes(x = TVlog, y = pred)) + 
-  geom_line(aes(group = Radio, colour = Radio)) + 
-  facet_grid(. ~ Newspaper)
 
 ```
 

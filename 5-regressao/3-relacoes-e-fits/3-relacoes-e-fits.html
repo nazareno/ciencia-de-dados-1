@@ -60,6 +60,9 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 <div class="tutorial-exercise" data-label="relacao1" data-caption="Code" data-completion="1" data-diagnostics="1" data-startover="1" data-lines="0">
 <pre class="text"><code>dados = dataset1 
 modelo = lm(y ~ x, data = dados)
+tidy(modelo, conf.int = T) %&gt;% 
+  select(term, estimate, conf.low, conf.high)
+
 # descomente e mude os coeficientes na mão. o 1o é o intercept, o 2o slope
 # modelo$coefficients = c(1, 2)
 

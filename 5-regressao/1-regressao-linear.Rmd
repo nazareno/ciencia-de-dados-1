@@ -202,13 +202,13 @@ library(GGally) # devtools::install_github("ggobi/ggally")
 
 mario <- read_delim("dados/marioKart.txt", delim = "\t", col_types = "diicdddcicic") %>% 
   mutate(stockPhoto = ifelse(stockPhoto == "yes", TRUE, FALSE))
-names(mario)
+glimpse(mario)
 
-#mario = mario %>% 
-#  filter(totalPr < 100)
+mario = mario %>% 
+  filter(totalPr < 100)
 
 mario %>% 
-  select(totalPr, cond, nBids, sellerRate) %>% 
+  select(totalPr, cond, nBids, duration) %>% 
   ggpairs()
 
 ```
@@ -220,7 +220,8 @@ mario %>%
 
 modelo = lm(totalPr ~ nBids, data = mario)
 
-tidy(modelo, conf.int = TRUE)
+tidy(modelo, conf.int = TRUE) %>% 
+  select(-statistic, -std.error)
 glance(modelo)
 
 mario %>% 
@@ -237,22 +238,23 @@ mario %>%
   ggplot(aes(x = startPr, y = totalPr)) + 
   geom_point(alpha = .5, size = 1)
 
-mario2 = mario %>% 
-  filter(startPr > 5)
+#mario2 = mario %>% 
+#  filter(startPr > 5)
 
-modelo = lm(totalPr ~ startPr, data = mario2)
+modelo = lm(totalPr ~ startPr, data = mario)
 
-tidy(modelo, conf.int = TRUE)
+tidy(modelo, conf.int = TRUE) %>%
+  select(-statistic, -std.error)
 glance(modelo)
 
-mario2 %>% 
+mario %>% 
   add_predictions(model = modelo) %>% 
   ggplot(aes(x = startPr)) + 
   geom_point(aes(y = totalPr)) + 
   geom_line(aes(y = pred), color = "red")
 
 
-mario2 %>% 
+mario %>% 
   add_residuals(model = modelo) %>% 
   ggplot(aes(x = startPr)) + 
   geom_point(aes(y = resid))  
@@ -266,7 +268,7 @@ Usaremos preços de leilões de cartuchos de Mario Kart no eBay.
 ```{r}
 mario %>% 
   ggplot(aes(x = cond, y = totalPr)) + 
-  geom_boxplot() + 
+  #geom_boxplot() + 
   geom_jitter(width = .1) 
   
 ```
@@ -309,7 +311,8 @@ mario %>%
   geom_jitter(aes(y = totalPr), width = .1, alpha = .3) + 
   geom_point(aes(y = pred), color = "red", size = 4) 
 
-tidy(mlm, conf.int = T)
+tidy(mlm, conf.int = T) %>% 
+  select(-statistic, -std.error)
 glance(mlm)
   
 ```
@@ -329,9 +332,10 @@ mario %>%
 ```
 
 ```{r}
-mlm <- lm(totalPr ~ cond + startPr, data = mario)
+mlm <- lm(totalPr ~ cond + startPr + cond * startPr, data = mario)
 
-tidy(mlm)
+tidy(mlm, conf.int = T) %>% 
+  select(-statistic, -std.error)
 
 model_plot = mario %>% 
   data_grid(cond, startPr) %>% 
@@ -339,8 +343,8 @@ model_plot = mario %>%
 
 model_plot %>% 
   ggplot(aes(x  = startPr, y = pred, colour = cond)) + 
-  geom_line() + 
-  facet_grid(. ~ cond)
+  geom_line() #+ 
+  #facet_grid(. ~ cond)
 
 model_plot %>% 
   ggplot(aes(x  = startPr, y = pred, colour = cond)) + 
@@ -394,11 +398,12 @@ mlm1 <- lm(totalPr ~ stockPhoto, data = mario)
 mario %>% 
   add_predictions(mlm1) %>% 
   ggplot(aes(x = stockPhoto, y = totalPr)) + 
-  geom_violin() + 
+  #geom_violin() + 
   geom_point(position = position_jitter(width = 0.1))  + 
   geom_point(aes(y = pred), size = 4, colour = "red")
 
-tidy(mlm1, conf.int = T)
+tidy(mlm1, conf.int = T) %>% 
+  select(-statistic, -std.error)
 glance(mlm1)
 
 mlm2 <- lm(totalPr ~ stockPhoto + cond, data = mario)
@@ -406,14 +411,17 @@ mlm2 <- lm(totalPr ~ stockPhoto + cond, data = mario)
 mario %>% 
   add_predictions(mlm2) %>% 
   ggplot(aes(x = stockPhoto, y = totalPr)) + 
-  geom_violin() + 
+  #geom_violin() + 
   geom_point(position = position_jitter(width = 0.1))  + 
   geom_point(aes(y = pred), size = 4, colour = "red") + 
-  geom_line(aes(y = pred, group = 1), size = 1, colour = "red") + 
+  #geom_line(aes(y = pred, group = 1), size = 1, colour = "red") + 
   facet_grid(. ~ cond)
 
-tidy(mlm2, conf.int = T)
+tidy(mlm2, conf.int = T) %>% 
+  select(-statistic, -std.error)
 glance(mlm2)
+
+table(mario$stockPhoto, mario$cond)
 ```
 
 ```{r}
