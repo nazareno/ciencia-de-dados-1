@@ -1,25 +1,29 @@
 ---
 title: "regressão logistica"
-author: "Nazareno Andrade e João Arthur B. Monteiro"
+author: "Nazareno Andrade"
 output: html_notebook
 ---
 
 ```{r include=FALSE, warning=FALSE}
-theme_set(theme_bw())
 library(GGally)
 library(pscl)
 library(broom)
 library(tidyverse)
+library(modelr) # devtools::install_github("hadley/modelr")
+
+theme_set(theme_bw())
 ```
 
 # Exemplo com o titanic
 
 ```{r}
-titanic <- read_csv("titanic3.csv")
+titanic <- read_csv("dados/titanic3.csv")
 titanic <- titanic %>% 
-  dplyr::select(pclass, survived, sex, age, fare) %>%
-  na.omit(titanic) %>%
-  mutate_each(funs(as.character), pclass, survived)
+  select(pclass, survived, sex, age, fare) %>%
+  na.omit() %>%
+  mutate(survived = case_when(.$survived == 0 ~ "não", 
+                              .$survived == 1 ~ "sim"), 
+         pclass = as.character(pclass)) 
 
 ggpairs(titanic)
 
@@ -28,17 +32,30 @@ titanic %>%
   geom_bar(position = "dodge")
 ```
 
-Parece haver uma relação entre fare e survived
+Parece haver uma relação entre fare e survived:
 
 ```{r}
-ggplot(titanic, aes(x = survived, y = fare)) + 
-  #geom_violin(aes(fill = survived), alpha = .4) + 
-  geom_boxplot(aes(fill = survived), alpha = .4) + 
-  #geom_count() + 
-  geom_jitter(width = .1, alpha = .3) + 
-  coord_flip() + scale_y_log10() 
-
+titanic %>% 
+  ggplot(aes(x = survived, y = fare)) + 
+  geom_violin(aes(fill = survived), alpha = .4) + 
+  #geom_boxplot(aes(fill = survived), alpha = .4) + 
+  geom_count() + 
+  #geom_jitter(width = .1, alpha = .3) + 
+  coord_flip() 
 ```
+
+A relação é mais visível em escala de log para o fare:
+
+```{r}
+titanic %>% 
+  filter(fare > 0) %>%
+  ggplot(aes(x = survived, y = fare)) + 
+  geom_violin(aes(fill = survived), alpha = .4) + 
+  geom_count(alpha = .5) + 
+  coord_flip() +
+  scale_y_log10() 
+```
+
 
 Seria possível passar uma regressão linear?
 
@@ -96,15 +113,20 @@ bm <- glm(survived ~ logFare,
           data = titanic_t, 
           family = "binomial")
 
-tidy(bm, conf.int = TRUE)
+tidy(bm, conf.int = TRUE) %>% 
+  select(-statistic, -p.value)
 # EXPONENCIANDO:
-tidy(bm, conf.int = TRUE, exponentiate = TRUE)
-## Como aqui y = exp(b0)*exp(b1*x1), aumentar em uma unidade x, faz com que y seja multiplicado por exp(b1), que é o coeficiente acima
+tidy(bm, conf.int = TRUE, exponentiate = TRUE) %>% 
+  select(-statistic, -p.value)
+## Como aqui y = exp(b0)*exp(b1*x1), aumentar em uma unidade x, faz com que y seja multiplicado por exp(b1), que é o estimate nessa tabela acima
 
 ```
 
+A variável dependente no modelo é $p(x)/(1-p(x))$. Caso queiramos observar o efeito de $x$ em $p(x)$, isso é menos óbvio porque a relação entre $x$ e $p(x)$ é não linear: o efeito depende dos valores de $x$. A forma de fazer: 
+
+
 ```{r}
-teste = data.frame(logFare = c(10, 11))
+teste = data.frame(logFare = 1:5)
 
 bm %>% 
   augment(newdata = teste, 
@@ -127,7 +149,7 @@ pR2(bm)
 ```{r}
 bm %>% 
   augment(type.predict = "response")  %>% 
-  mutate(survivedNum = ifelse(survived == "1", 1, 0)) %>% 
+  mutate(survivedNum = ifelse(survived == "sim", 1, 0)) %>% 
   ggplot(aes(x = logFare)) + 
   geom_count(aes(y = survivedNum), alpha = 0.5) + 
   geom_line(aes(y = .fitted))
@@ -148,49 +170,28 @@ pR2(bm)
 ```{r}
 bm %>% 
   augment(type.predict = "response")  %>% 
-  mutate(survivedNum = ifelse(survived == "1", 1, 0)) %>% 
+  mutate(survivedNum = ifelse(survived == "sim", 1, 0)) %>% 
   ggplot(aes(x = pclass)) + 
   geom_count(aes(y = survivedNum), alpha = 0.5) + 
-  geom_point(aes(y = .fitted), color = "blue")
+  geom_point(aes(y = .fitted), color = "orange")
 ```
-
-## Mudanças na probabilidade
-
-A variável dependente no modelo é $p(x)/(1-p(x))$. Caso queiramos observar o efeito de $x$ em $p(x)$, isso é menos óbvio porque a relação entre $x$ e $p(x)$ é não linear: o efeito depende dos valores de $x$. A forma de fazer: 
-
-```{r}
-bm <- glm(survived ~ logFare, 
-          data = titanic_t, 
-          family = "binomial")
-
-test <- data.frame(logFare=c(1, 2)) # os dois valores de x para os quais queremos comparar p(x)
-
-bm %>% 
-  augment(newdata = test, 
-          type.predict = "response")
-```
-
 
 # Multivariada:
 
 ```{r}
-bm <- glm(survived ~ pclass + sex + age + sex*age, 
+bm <- glm(survived ~ pclass + sex + age, 
           data = titanic_t, 
           family = "binomial")
 
 tidy(bm, conf.int = TRUE)
 tidy(bm, conf.int = TRUE, exponentiate = TRUE)
-glance(bm)
 
+glance(bm)
 pR2(bm)
 
 ```
 
-## Fazendo previsões com modelos multivariados
-
 ```{r}
-library(modelr) # devtools::install_github("hadley/modelr")
-
 m = titanic_t %>% 
   data_grid(pclass, sex, age)
 mm = augment(bm, 
@@ -203,31 +204,62 @@ ggplot(mm, aes(x = age, colour = pclass)) +
 
 ```
 
+### Interações
+
+```{r}
+bm2 <- glm(survived ~ pclass + sex + age + sex*age, 
+          data = titanic_t, 
+          family = "binomial")
+
+tidy(bm2, conf.int = TRUE, exponentiate = TRUE)
+pR2(bm2)
+
+bm2 %>% augment(bm2, 
+        newdata = m, 
+        type.predict = "response") %>% 
+  ggplot(aes(x = age, colour = pclass)) + 
+  geom_line(aes(y = .fitted)) +  
+  facet_grid(.~sex) 
+
+
+```
+
 ## Outra forma de avaliar é pela precisão:
 
 ```{r}
-bm %>% 
-  augment(type.predict = "response")
+previsoes = bm %>% 
+  augment(type.predict = "response") %>% 
+  mutate(segundo_modelo = .fitted > .5, 
+         segundo_dados = survived == "sim")
 
-predictions <- predict(bm, type = "response") > .5
-titanic_t = titanic_t %>% 
-  mutate(true_survivals = survived == 1)
-
-table(predictions, titanic_t$true_survivals)
+table(previsoes$segundo_modelo, previsoes$segundo_dados)
+xtabs(~ segundo_modelo + segundo_dados, data = previsoes)
 
 require(vcd)
-mosaic(table(predictions, titanic_t$true_survivals))
-
-erro <- sum((predictions != titanic_t$true_survivals)) / NROW(predictions)
-erro
+mosaic(segundo_dados ~ segundo_modelo, data = previsoes, 
+       shade = T)
 ```
+
+```{r}
+acuracia <- sum((predictions == titanic_t$true_survivals)) / NROW(predictions)
+acuracia
+
+falsos_positivos = sum((predictions == T & titanic_t$true_survivals == F)) / NROW(predictions)
+falsos_positivos
+
+falsos_negativos = sum((predictions == F & titanic_t$true_survivals == T)) / NROW(predictions)
+falsos_negativos
+```
+
 
 # Outro exemplo: fit relacionando preferências e gêneros em speed dating
 
 ```{r}
-x = read_csv("data/gender_prefs_speeddating.csv")
-gendermodel = glm(gender ~ sports, 
-                  data = dplyr::select(x, -iid), 
+x = read_csv("https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/5-regressao/speed-dating/speed-dating2.csv") %>% 
+  mutate(dec = as.factor(dec), 
+         gender = as.factor(gender))
+gendermodel = glm(dec ~ gender, 
+                  data = x, 
                   family = "binomial")
 tidy(gendermodel, conf.int = TRUE, exponentiate = TRUE)
 glance(gendermodel)
