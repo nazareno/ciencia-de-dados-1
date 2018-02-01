@@ -14,7 +14,6 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(GGally)
 theme_set(theme_bw())
 ```
 
@@ -98,7 +97,7 @@ O principal a entender aqui é que se conhecermos a distribuição amostral, sab
 
 ## A situação mais comum na vida real
 
-Normalmente temos *uma amostra* da população apenas. Daí não conhecemos a distribuição amostral. Mas gostaríamos de a parti da nossa amostra estimar onde está uma estatística para a população. 
+Normalmente temos *uma amostra* da população apenas. Daí não conhecemos a distribuição amostral. Mas gostaríamos de a partir da nossa amostra estimar onde está uma estatística para a população. 
 
 Exemplo: queremos estimar qual a proporção de pessoas que gostará do produto (a estatística) entre todos os usuários (a população) a partir do cálculo da proporção de pessoas que gostou do produto (a mesma estatística) em um teste prévio com 100 pessoas (a amostra).
 
@@ -125,6 +124,8 @@ Assim, se estimamos que em 99% das amostras, $e_a$ está a +/- 10 unidades de $e
 ```{r}
 amostra = sample(lastfm$news, 200)
 
+media_amostra = mean(amostra)
+
 repeticoes = 4000 # pelo menos 2000, mas mais não faz mal.
 
 exp_com_bootstrap <- function(x){
@@ -134,8 +135,9 @@ exp_com_bootstrap <- function(x){
 
 # Agora o input das reamostragens é a amostra!
 experimentos = data_frame(i = 1:repeticoes) %>% 
-  rowwise() %>% 
-  mutate(media_exp = exp_com_bootstrap(amostra)) # <- Aqui!
+    rowwise() %>% 
+    mutate(media_exp = exp_com_bootstrap(amostra)) %>%  # <- Aqui!
+    ungroup() 
 
 ggplot(experimentos, aes(x = media_exp)) + 
   geom_histogram(binwidth = 1, colour = "darkorange", fill = "white")
@@ -145,18 +147,38 @@ summary(experimentos)
 alpha = .1
 quantile(experimentos$media_exp, 
          probs = c(.05, .95))
-ci = quantile(experimentos$media_exp, probs = c(alpha/2, 1 - alpha/2))
+
+cis = experimentos %>% 
+    mutate(diferenca = media_exp - media_amostra) %>% 
+    summarise(l = quantile(diferenca, alpha/2), 
+              u = quantile(diferenca, 1 - alpha/2)) %>% 
+    mutate(ci_lower = media_amostra - u, 
+           ci_upper = media_amostra - l)
 
 ggplot(experimentos, aes(x = media_exp)) + 
   geom_histogram(binwidth = 1, colour = "darkorange", fill = "white") + 
-  geom_vline(aes(xintercept = ci[[1]]), colour = "blue") + 
-  geom_vline(aes(xintercept = ci[[2]]), colour = "blue") + 
-  geom_vline(aes(xintercept = mean(lastfm$news)), colour = "green")
+  geom_vline(aes(xintercept = cis$ci_lower), colour = "blue", size = 1.5) + 
+  geom_vline(aes(xintercept = cis$ci_upper), colour = "blue", size = 1.5) + 
+  geom_vline(aes(xintercept = media_amostra), colour = "green") + 
+    geom_vline(aes(xintercept = mean(lastfm$news)), colour = "red")
 
 # IC com 95%: 
-alpha = .05
-ci = quantile(experimentos$media_exp, 
-              probs = c(alpha/2, 1 - alpha/2))
+alpha2 = .05
+cis2 = experimentos %>% 
+    mutate(diferenca = media_exp - media_amostra) %>% 
+    summarise(l = quantile(diferenca, alpha2/2), 
+              u = quantile(diferenca, 1 - alpha2/2)) %>% 
+    mutate(ci_lower = media_amostra - u, 
+           ci_upper = media_amostra - l)
+
+ggplot(experimentos, aes(x = media_exp)) + 
+  geom_histogram(binwidth = 1, colour = "darkorange", fill = "white") + 
+    geom_vline(aes(xintercept = cis$ci_lower), colour = "blue") + 
+  geom_vline(aes(xintercept = cis$ci_upper), colour = "blue") + 
+  geom_vline(aes(xintercept = cis2$ci_lower), colour = "purple", size = 2) + 
+  geom_vline(aes(xintercept = cis2$ci_upper), colour = "purple", size = 2) + 
+  geom_vline(aes(xintercept = media_amostra), colour = "green")
+
 ```
 
 
