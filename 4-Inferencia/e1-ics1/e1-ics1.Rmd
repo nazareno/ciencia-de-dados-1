@@ -1,0 +1,123 @@
+---
+title: "ICs, parte 1"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(tidyverse)
+library(boot)
+knitr::opts_chunk$set(echo = FALSE)
+theme_set(theme_bw())
+
+amostra = read_csv("sample-lastfm.csv", col_types = "cddii") 
+dados = amostra
+```
+
+
+## Intervalos de confiança
+
+### A ideia
+
+Utilizaremos como exemplo o dataset do experimento com usuários do Lastfm sobre o qual conversamos em sala. 
+
+```{r descreve_dados, exercise = FALSE}
+
+dados %>% 
+    glimpse()
+
+dados %>% 
+    ggplot(aes(x = news)) + 
+    geom_histogram(binwidth = 20, fill = "darkblue")
+
+dados %>% 
+    ggplot(aes(x = old)) + 
+    geom_histogram(binwidth = 20, fill = "orange")
+
+dados %>% 
+    ggplot(aes(x = ecletic)) + 
+    geom_histogram(binwidth = 500, fill = "brown")
+
+dados %>% 
+    ggplot(aes(x = media_pop)) + 
+    geom_histogram(binwidth = .25, fill = "darkgreen")
+```
+
+
+
+Se quisermos estimar onde está a média do número de artistas novos escutados pelos participantes do experimento, nosso código seria algo desse tipo:
+
+```{r exemplo-media, exercise = FALSE, echo = TRUE}
+
+funcao_bootstrap <- function(dado, indices){
+    d = dado %>% 
+        slice(indices) %>% 
+        pull(news)
+    return(mean(d))
+}
+
+bootstraps <- boot(data = amostra, 
+                   statistic = funcao_bootstrap, # <- referência para a função 
+                   R = 2000)
+
+glimpse(bootstraps$t)
+
+tibble(estatistica = as.double(bootstraps$t)) %>% 
+    ggplot(aes(x = estatistica)) + 
+    geom_histogram(binwidth = .1)
+
+boot.ci(bootstraps, conf = 0.95, type = "basic")
+```
+
+Calcule o IC da mediana dessa variável. Dá par afirmarmos se valor da média é superior ou inferior ao da mediana (na população)? Isso era esperado?
+
+```{r faca-mediana, exercise=TRUE, exercise.lines = 10}
+
+
+
+```
+
+
+## Diferenças via ICs
+
+Ok, agora suponha que queiramos calcular se o número de artistas novos escutados pelos participantes de nosso experimento é maior ou menor que o número de artistas do conjunto que usamos para determinar o que ele já conhecia. Calcule os ICs para ambos e proponha uma resposta. 
+
+E conseguimos estimar o tamanho da diferença?
+
+```{r diff-via-ics, exercise=TRUE, exercise.lines = 10}
+
+
+
+```
+
+
+## ICs da diferença
+
+Para que possamos estimar o IC da diferença, precisamos definir a estatística *diferença entre novos e antigos* e aí estimar o IC dela. 
+
+*Podemos afirmar com o nível de confiança que você escolheu que ela é diferente de zero?*
+
+```{r ics-da-diff, exercise=TRUE, exercise.lines = 10}
+amostra = amostra %>%  
+    mutate(diferenca = news/2 - old/4)
+
+```
+
+
+## Diferenças não pareadas
+
+Pelo método anterior, era possível calcular a diferença entre news e old para cada participante do experimento. Isso se chama *diferença pareada*. Se quisermos calcular a diferença entre (a) a quantidade de novos artistas escutados por um subgrupo dos participantes que gosta muito de artistas populares pop e (b) a quantidade  de novos artistas escutados por um subgrupo dos participantes que gosta mais de artistas obscuros, eles subgrupos serão de participantes diferentes. Por isso, não poderemos fazer uma diferença pareada.
+
+Reescreva a função `funcao_bootstrap` para que ela faça a diferença das médias em cada boostrap e calcule abaixo o IC da diferença não-pareada. Podemos afirmar com 95% de confiança que ela é diferente de zero? O que isso significa?
+
+```{r nao-pareada, exercise=TRUE, exercise.lines = 10}
+amostra = amostra %>%  
+    filter(media_pop > 5.74 | media_pop < 5.2) %>%  # <- deixa apenas os extremos
+    mutate(gosta_de_pop = media_pop > 5.7)
+
+
+```
+
+
+
