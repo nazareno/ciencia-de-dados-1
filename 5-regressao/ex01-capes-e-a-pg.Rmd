@@ -60,7 +60,7 @@ Para visualizar o modelo:
 
 ```{r}
 cacc_augmented = cacc %>% 
-  add_predictions(modelo) 
+  add_predictions(modelo1) 
 
 cacc_augmented %>% 
   ggplot(aes(x = `Docentes permanentes`)) + 
