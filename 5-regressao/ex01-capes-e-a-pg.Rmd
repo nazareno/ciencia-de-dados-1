@@ -1,0 +1,136 @@
+---
+title: "Regressão linear na prática"
+output: html_notebook
+---
+
+```{r warning=FALSE, echo=FALSE}
+library(tidyverse)
+library(broom)
+library(modelr)
+theme_set(theme_bw())
+```
+
+## Dados da CAPES sobre avaliação da pós-graduação
+
+A CAPES é um órgão do MEC que tem a atribuição de acompanhar a pós-graduação na universidade brasileira. Uma das formas que ela encontrou de fazer isso e pela qual ela é bastante criticada é através de uma avaliação quantitativa a cada x anos (era 3, mudou para 4). 
+
+Usaremos dados da penúltima avaliação da CAPES: 
+
+```{r}
+cacc_raw = read_csv("https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/3-Agrupamento-e-PCA/dados/capes-cacc.csv", col_types = "") %>% 
+  mutate_all(funs(replace(., is.na(.), 0))) %>% 
+  filter(Teses + Dissertacoes > 0)
+
+glimpse(cacc_raw)
+```
+
+## Fatores associados com produção de artigos
+
+Uma das maneiras de avaliar a produção dos docentes que a CAPES utiliza é quantificando a produção de artigos pelos docentes. Os artigos são categorizados em extratos ordenados (A1 é o mais alto), e separados entre artigos em conferências e periódicos. Usaremos para esse lab a produção em periódicos avaliados com A1, A2 e B1.
+
+```{r}
+cacc = cacc_raw %>% 
+  mutate(producao = periodicos_A1 + periodicos_A2 + periodicos_B1) 
+
+cacc %>% 
+  ggplot(aes(x = producao)) + 
+  geom_histogram(bins = 15)
+```
+
+Se quisermos modelar o efeito do tamanho do programa em termos de docentes (permanentes) na quantidade de artigos publicados, podemos usar regressão. 
+
+*Importante*: sempre queremos ver os dados antes de fazermos qualquer modelo ou sumário: 
+
+```{r}
+cacc %>% 
+  ggplot(aes(x = `Docentes permanentes`, y = producao)) + 
+  geom_point()
+```
+
+Parece que existe uma relação. Vamos criar um modelo então:
+
+```{r}
+modelo1 = lm(producao ~ `Docentes permanentes`, data = cacc)
+
+tidy(modelo1, conf.int = TRUE, conf.level = 0.95)
+glance(modelo1)
+```
+
+Para visualizar o modelo:
+
+```{r}
+cacc_augmented = cacc %>% 
+  add_predictions(modelo) 
+
+cacc_augmented %>% 
+  ggplot(aes(x = `Docentes permanentes`)) + 
+  geom_line(aes(y = pred), colour = "brown") + 
+  geom_point(aes(y = producao)) + 
+  labs(y = "Produção do programa")
+
+```
+
+Se considerarmos que temos apenas uma amostra de todos os programas de pós em CC no Brasil, o que podemos inferir a partir desse modelo sobre a relação entre número de docentes permanentes e produção de artigos em programas de pós? 
+
+-----
+
+**EXPLICAÇÃO**: *Substitua esse texto por seu comentário. Comente tanto sobre as relações entre as variáveis (significância e relevância do efeito) quanto o quão bem o modelo explica os dados.*
+
+-----
+
+Algum palpite de por que a relação existe como ela existe em termos de força?
+
+## Mais fatores
+
+E se considerarmos também o número de alunos?
+
+```{r}
+cacc = cacc %>% 
+  mutate(mestrados_pprof = Dissertacoes / `Docentes permanentes`, 
+         doutorados_pprof = Teses / `Docentes permanentes`)
+
+modelo2 = lm(producao ~ `Docentes permanentes` + mestrados_pprof + doutorados_pprof, data = cacc)
+
+tidy(modelo2, conf.int = TRUE, conf.level = 0.95)
+glance(modelo2)
+```
+
+Visualizar o modelo com muitas variáveis independentes fica mais difícil
+
+```{r}
+para_plotar_modelo = cacc %>% 
+  data_grid(producao = seq_range(producao, 10), # Crie um vetor de 10 valores no range
+            `Docentes permanentes` = seq_range(`Docentes permanentes`, 4),  
+            #mestrados_pprof = seq_range(mestrados_pprof, 3),
+            mestrados_pprof = median(mestrados_pprof),
+            doutorados_pprof = seq_range(doutorados_pprof, 3)) %>% 
+  add_predictions(modelo2)
+
+glimpse(para_plotar_modelo)
+
+```
+
+```{r}
+para_plotar_modelo %>% 
+  ggplot(aes(x = `Docentes permanentes`, y = pred)) + 
+  geom_line(aes(group = doutorados_pprof, colour = doutorados_pprof)) + 
+  # facet_grid(. ~ mestrados_pprof) + 
+  geom_point(data = cacc, aes(y = producao, colour = doutorados_pprof))
+```
+
+Considerando agora esses três fatores, o que podemos dizer sobre como cada um deles se relaciona com a produção de um programa de pós em CC? E sobre o modelo? Ele explica mais que o modelo 1? 
+
+-----
+
+**EXPLICAÇÃO**: *Substitua esse texto por seu comentário. Comente tanto sobre as relações entre as variáveis (significância e relevância do efeito) quanto o quão bem o modelo explica os dados.*
+
+-----
+
+## Agora produtividade 
+
+Diferente de medirmos produção (total produzido), é medirmos produtividade (produzido / utilizado). Abaixo, crie um modelo que investigue como um conjunto de fatores que você julga que são relevantes se relacionam com a produtividade dos programas. Ou seja: 
+
+  * Crie uma variável produtividade baseada na produção e nos docentes permanentes
+  * Crie um modelo que avalie como pelo menos 4 fatores se relacionam com a produtividade de um programa. Pode reutilizar fatores que já definimos e analizamos para produção. Mas cuidado para não incluir fatores que sejam função linear de outros já incluídos (ex: incluir A, B e um tercero C=A+B)
+
+Produza abaixo o modelo e um texto que comente (i) o modelo, tal como os que fizemos antes, e (ii) uma comparação entre as relações que você viu nesse modelo e no anterior (de produção) e por que as relações encontradas foram diferentes (se foram).
