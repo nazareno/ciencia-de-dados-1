@@ -2,19 +2,27 @@
 title: "Algumas dicas sobre formas e medidas de correlação"
 author: "Nazareno Andrade"
 date: "13 de março de 2016"
-output: html_document
+output: html_notebook
 ---
 
-```{r, message=FALSE}
-require(ggplot2, quietly = TRUE)
-require(GGally, quietly = TRUE)
-require(reshape2, quietly = TRUE)
-require(dplyr, quietly = TRUE)
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(GGally)
+library(reshape)
 ```
 
 ## Sobre forma e medida
 
-Em análise exploratória, com frequência queremos examinar se há associação entre duas variáveis numéricas. Conselho importante: não há um número apenas que possa lhe responder tudo sobre a associação entre as duas variáveis. As medidas de correlação que você usará servirão mais para complementar e quantificar observações feitas em gráficos de dispersão do que para lhe guiar. 
+Em análise exploratória, com frequência queremos examinar se há associação entre duas variáveis numéricas. Para descrever uma associação como essa, há pelo menos quatro características importantes: 
+
+  1. *Formato* da associação: linear, exponencial, parabólica, linear e depois assintótica, outro formato arbitrário, etc.
+  2. *Força* da associação: correlação forte, fraca, nenhuma. 
+  3. *Sinal* da associação: correlação positiva ou negativa, quando é perceptível. 
+  4. *Pontos extremos* fora da associação.
+
+### Sumários x todos os pontos
+
+Conselho importante: não há um número apenas que possa lhe responder tudo sobre a associação entre as duas variáveis. As medidas de correlação que você usará servirão mais para complementar e quantificar observações feitas em gráficos de dispersão do que para lhe guiar. 
 
 Um exemplo classico com quatro pares de variáveis cujas associações interessam: x1 e y1, x2 e y2, etc., o [quarteto de Anscombe](https://en.wikipedia.org/wiki/Anscombe%27s_quartet):
 
@@ -111,8 +119,10 @@ df <- data.frame(x = runif(n, min= 1, max = 20))
 df$y = 100 * exp(-1.2 * df$x) #+ rnorm(n, mean = 0.05, sd = 1)
 
 ggplot(df, aes(x = x, y = y)) + 
-  geom_point(colour = "darkgrey", size = 4) + 
-  theme_bw()# + scale_y_log10() 
+  geom_point(colour = "darkgrey", size = 4) 
+
+ggplot(df, aes(x = x, y = y)) + 
+  geom_point(colour = "darkgrey", size = 4) # + scale_y_log10()  
 
 # tente descomentando o scale_y_log10 acima e veja o que acontece
   
@@ -121,7 +131,6 @@ cor(df$x, df$y, method = "spearman")
 cor(df$x, df$y, method = "kendall")
 ```
 
-
 ------
 
 ## Dica prática
@@ -129,29 +138,23 @@ cor(df$x, df$y, method = "kendall")
 Quando considerando várias variáveis, o mais prático é usar uma matriz de gráficos de dispersão: 
 
 ```{r}
-alunos.tudo = read.csv("../dados//alunos-ad1.csv",
-                       header=FALSE, 
-                       comment.char="#")
+dados <- read.csv("dados//Dados de alunos para as aulas de FPCC-report.csv")
 
-alunos = alunos.tudo %>% 
-  select(2, 4, 5, 8, 10, 11)
+dados <-
+  dados %>% 
+  select(2, 3, 5, 7, 9) %>% 
+  filter(complete.cases(dados)) %>% 
+  filter(transporte != "")
 
-names(alunos) = c("sexo", 
-                  "repositorios", 
-                  "linguagens", 
-                  "altura", 
-                  "tempo.para.ufcg", 
-                  "transporte")
-alunos = alunos %>% filter(transporte != "")
-str(alunos)
+names(dados) <-
+  c("curso",
+    "sexo",
+    "repositorios",
+    "confianca.em.estatistica",
+    "altura")
+  
+str(dados)
 
-alunos %>% 
-  filter(complete.cases(.), altura > 1) %>% 
-  select(-sexo, -transporte) %>% 
-  ggpairs()
-
-
+ggpairs(dados)
 ```
-
-------
 

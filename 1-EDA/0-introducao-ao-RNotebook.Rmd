@@ -17,4 +17,3 @@ Talvez a razão seja outra.
 ```{r}
 plot(iris$Sepal.Length, iris$Sepal.Width)
 ```
-

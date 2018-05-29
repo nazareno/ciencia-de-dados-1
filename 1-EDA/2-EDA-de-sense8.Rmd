@@ -9,6 +9,7 @@ editor_options:
 library(tidyverse, warn.conflicts = F)
 ```
 
+Analisaremos os episódios de Sense8.
 
 ```{r}
 episodes = read_csv("../dados/sense8-imdb.csv") %>% 

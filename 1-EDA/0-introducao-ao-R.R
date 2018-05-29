@@ -1,7 +1,7 @@
 library(tidyverse) # carrega os pacotes ggplot2, readr, tidyr e dplyr
 # no linux pode ser que você precise instalar a libcurl4-openssl-dev
 
-# tente usar sempre read_csv em vez de read.csv
+# use sempre read_csv em vez de read.csv
 vendas = read_csv(file = "../dados/vendas_artistas_br.csv")
 # sempre dê uma olhada no que você leu
 glimpse(vendas)

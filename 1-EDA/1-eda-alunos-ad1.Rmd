@@ -12,8 +12,8 @@ editor_options:
   chunk_output_type: inline
 ---
 
-```{r}
-library(tidyverse, warn.conflicts = FALSE, )
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
 theme_set(theme_bw()) # Eu prefiro o theme_bw() mas você pode explorar outros
 ```
 
