@@ -9,15 +9,18 @@
 
 library(shiny)
 library(tidyverse, warn.conflicts = F)
+library(here)
 theme_set(theme_bw())
 
-entradas = read_csv("../../dados/ccc-entradas-por-genero.csv")
+entradas = read_csv(here("../dados/ccc-entradas-por-genero.csv"))
 
 shinyServer(function(input, output) {
   output$plotTempo = renderPlot({
-    entradas %>% 
-      filter(ano >= input$anos[1], ano <= input$anos[2]) %>% 
-      ggplot(aes(PERIODO_INGRESSO, entrada, fill = GENERO)) + 
+    entradas %>%
+      filter(ano >= input$anos[1], ano <= input$anos[2]) %>%
+      ggplot(aes(x = PERIODO_INGRESSO, 
+                 y = entrada, 
+                 fill = GENERO)) +
       geom_area()
   })
 })
