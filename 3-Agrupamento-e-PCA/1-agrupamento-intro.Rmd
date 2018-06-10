@@ -362,6 +362,7 @@ ggplotly(p)
 
 ```{r}
 agrupamento_h_2d = filmes %>% 
+    as.data.frame() %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>%
     dist(method = "euclidean") %>% 
@@ -384,8 +385,7 @@ Como sempre, o algoritmo encontra grupos. No caso, parecem até bem separados. V
 plota_hclusts_2d(agrupamento_h_2d, 
                  filmes, 
                  c("RATING", "`BOX OFFICE`"), 
-                 linkage_method = "centroid", ks = 1:6) + 
-    scale_color_brewer(palette = "Dark2")
+                 linkage_method = "centroid", ks = 1:6) 
 ```
 
 A distinção de grupos no agrupamento está acontecendo toda em função de BOX OFFICE, apenas. Como as escalas são diferentes, BOX OFFICE domina qualquer cálculo de distância euclidiana. 
@@ -445,7 +445,7 @@ plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias))
 ```
 
 
-## Mais variáveis
+## Mais variáveis 
 
 E se tivéssemos mais de duas variáveis?
 
