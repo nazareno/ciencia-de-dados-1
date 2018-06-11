@@ -216,7 +216,7 @@ agrupamento_h = filmes %>%
     column_to_rownames("TITLE") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
     select(RATING) %>%
     dist(method = "euclidian") %>% 
-    hclust(method = "ward.D")
+    hclust(method = "centroid")
 
 ggdendrogram(agrupamento_h, rotate = T, size = 2, theme_dendro = F) + 
     labs(y = "Dissimilaridade")
@@ -272,7 +272,8 @@ get_grupos <- function(agrupamento, num_grupos){
         mutate(grupo = as.character(grupo))
 }
 
-atribuicoes = get_grupos(agrupamento_h, num_grupos = 1:8)
+atribuicoes = get_grupos(agrupamento_h, 
+                         num_grupos = 1:8)
 
 atribuicoes = atribuicoes %>% 
     mutate(TITLE = label %>% word(1, sep = "-")) %>% 
@@ -353,7 +354,9 @@ plot(silhouette(cutree(agrupamento_hs, k = 2), distancias))
 
 ```{r}
 p = filmes %>% 
-    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
+    ggplot(aes(x = RATING, 
+               y = `BOX OFFICE`, 
+               label = TITLE)) + 
     geom_point() 
 p
 ggplotly(p)
@@ -394,7 +397,8 @@ A distinção de grupos no agrupamento está acontecendo toda em função de BOX
 
 ```{r}
 agrupamento_h_2d = filmes %>% 
-    mutate_at(vars(RATING, `BOX OFFICE`), funs(scale)) %>%
+    mutate_at(vars(RATING, `BOX OFFICE`), 
+              funs(scale)) %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>%
     dist(method = "euclidean") %>% 
