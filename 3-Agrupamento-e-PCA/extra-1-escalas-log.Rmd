@@ -1,0 +1,59 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(here)
+
+theme_set(theme_bw())
+```
+
+
+```{r}
+moore = read_csv(here("dados/lei-de-moore.csv"))
+```
+
+
+```{r}
+moore %>% 
+    ggplot(aes(x = `Transistor count`)) + 
+    geom_histogram(bins = 50, fill = "white", colour = "darkred")
+```
+
+```{r}
+moore %>% 
+    ggplot(aes(x = `Transistor count`)) + 
+    geom_histogram(bins = 20, fill = "white", colour = "darkred") + 
+    scale_x_log10()
+```
+
+
+```{r}
+moore %>% 
+    ggplot(aes(x = "", y = `Transistor count`)) + 
+    geom_jitter(width = .1, size = 2, alpha = .6)
+```
+
+
+```{r}
+moore %>% 
+    ggplot(aes(x = year, y = `Transistor count`)) + 
+    geom_point()
+```
+
+```{r}
+moore %>% 
+    ggplot(aes(x = year, y = log2(`Transistor count`))) + 
+    geom_point() 
+```
+
+
+```{r}
+moore %>% 
+    ggplot(aes(x = year, y = `Transistor count`)) + 
+    geom_point() + 
+    scale_y_log10()
+```
+
