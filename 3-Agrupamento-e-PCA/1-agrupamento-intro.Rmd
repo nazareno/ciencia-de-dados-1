@@ -399,6 +399,7 @@ A distinção de grupos no agrupamento está acontecendo toda em função de BOX
 agrupamento_h_2d = filmes %>% 
     mutate_at(vars(RATING, `BOX OFFICE`), 
               funs(scale)) %>% 
+    as.data.frame() %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>%
     dist(method = "euclidean") %>% 
@@ -419,10 +420,11 @@ E com escala de log para bilheteria?
 agrupamento_h_2d = filmes %>% 
     mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>%
     mutate_at(vars(RATING, `BOX OFFICE`), funs(scale)) %>%
+    as.data.frame() %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>%
     dist(method = "euclidean") %>% 
-    hclust(method = "centroid")
+    hclust(method = "ward.D")
 
 ggdendrogram(agrupamento_h_2d, rotate = TRUE, theme_dendro = F)
 
@@ -430,13 +432,29 @@ filmes2 = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
 plota_hclusts_2d(agrupamento_h_2d, 
                  filmes2, 
                  c("RATING", "`BOX OFFICE`"), 
-                 linkage_method = "centroid", ks = 1:6) + 
+                 linkage_method = "ward.D", ks = 1:6) + 
     scale_y_log10() + 
     scale_color_brewer(palette = "Dark2")
+
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes2, 
+                 c("RATING", "`BOX OFFICE`"), 
+                 linkage_method = "ward.D", ks = 1:6) + 
+    scale_color_brewer(palette = "Dark2")
+
 ```
 
 
 ```{r}
+agrupamento_h_2d = filmes %>% 
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>%
+    mutate_at(vars(RATING, `BOX OFFICE`), funs(scale)) %>%
+    as.data.frame() %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "ward.D")
+
 distancias = filmes %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>% 
@@ -456,58 +474,63 @@ E se tivéssemos mais de duas variáveis?
 
 ```{r}
 filmes2 = agrupamento_h_md = filmes %>% 
-    mutate(TITLE_LENGTH = nchar(TITLE)) 
+    mutate(TITLE_LENGTH = nchar(TITLE))
 
 dists = filmes2 %>% 
-    column_to_rownames("TITLE") %>%
+    as.data.frame() %>% 
     mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    mutate_at(vars(RATING, `BOX OFFICE`, TITLE_LENGTH, YEAR), funs(scale)) %>% 
+    column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`, TITLE_LENGTH, YEAR) %>%
-    mutate_all(funs(scale)) %>% 
     dist(method = "euclidean")
 
 agrupamento_h_md = dists %>% 
     hclust(method = "ward.D")
 
 ggdendrogram(agrupamento_h_md, rotate = T)
+```
+
+```{r}
+tibble(alturas_dendrograma = agrupamento_h_md$height) %>% 
+    mutate(k = 1:n()) %>% 
+    ggplot(aes(x = k, y = alturas_dendrograma)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Junções feitas (34 - clusters)", 
+         y = "Dissimilaridade na junção", 
+         title = "Dissimilaridade em cada aglomeração")
+```
+
+```{r}
 cores = RColorBrewer::brewer.pal(4, "Set3")
 plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, border = NA)
 ```
 
 ```{r}
-atribuicoes = tibble(k = 1:5) %>% 
-    group_by(k) %>% 
-    do(cbind(filmes2, 
-             grupo = as.character(cutree(agrupamento_h_md, .$k)))) 
+filmes2_agrupados = filmes2 %>%
+    select(-i) %>% 
+    mutate(grupo = agrupamento_h_md %>% cutree(4) %>%  as.character())
 
-atribuicoes_long = atribuicoes %>% 
-    mutate(`BOX OFFICE` = scale(log10(`BOX OFFICE`)), 
-           YEAR = scale(YEAR), 
-           RATING = scale(RATING), 
-           TITLE_LENGTH = scale(TITLE_LENGTH)) %>% 
-    gather(key = "variavel", value = "valor", -TITLE, -k, -grupo, -CREDIT) 
+filmes2_long = filmes2_agrupados %>% 
+    mutate_at(vars(`BOX OFFICE`), log10) %>% 
+    mutate_at(vars(`BOX OFFICE`, YEAR, RATING, TITLE_LENGTH), scale) %>% 
+    gather(key = "variavel", value = "valor", -TITLE, -grupo, -CREDIT) 
 
-atribuicoes_long %>% 
-    ggplot(aes(x = variavel, y = valor, group = grupo, colour = grupo)) + 
-    geom_point(alpha = .4, position = position_dodge(width = .5)) + 
-    facet_wrap(~ paste(k, " grupos")) + 
-    labs(x = "", y = "z-score")
+filmes2_long %>% 
+    ggplot(aes(x = reorder(variavel, valor), y = valor, group = grupo, colour = grupo)) +
+    geom_point(alpha = .4, size = 2, position = position_dodge(width = .5)) + 
+    labs(x = "", y = "z-score") + 
+    scale_color_brewer(palette = "Set1")
 
-atribuicoes_long %>% 
-    filter(k == 4) %>%
-    ggplot(aes(x = variavel, 
-               y = valor, 
-               colour = grupo)) + 
-    geom_boxplot() + 
-    geom_point(alpha = .4, position = position_jitter(width = .1)) + 
-    facet_wrap(~ grupo) + 
-    labs(x = "", y = "z-score")
-
-atribuicoes_long %>% 
-    filter(k == 4) %>%
-    ggplot(aes(x = variavel, y = valor, group = TITLE, colour = grupo)) + 
-    geom_point(alpha = .3, size = .5) + 
-    geom_line(alpha = .7) + 
-    facet_wrap(~ paste("Grupo ", grupo)) + 
-    labs(x = "", y = "z-score")
+filmes2_long %>% 
+    ggplot(aes(x = reorder(variavel, valor), y = valor, group = variavel, colour = variavel)) +
+    geom_point(alpha = .4, size = 2, position = position_dodge(width = .5)) + 
+    labs(x = "", y = "z-score") + 
+    facet_grid(reorder(grupo, valor, median) ~ . ) + 
+    coord_flip() + 
+    scale_color_brewer(palette = "Dark2")
 ```
+
+
+
 
