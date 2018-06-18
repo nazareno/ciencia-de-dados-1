@@ -474,13 +474,19 @@ E se tivéssemos mais de duas variáveis?
 
 
 ```{r}
-filmes2 = agrupamento_h_md = filmes %>% 
+filmes2 = filmes %>% 
     mutate(TITLE_LENGTH = nchar(TITLE))
+
+glimpse(filmes2)
 
 dists = filmes2 %>% 
     as.data.frame() %>% 
     mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
-    mutate_at(vars(RATING, `BOX OFFICE`, TITLE_LENGTH, YEAR), funs(scale)) %>% 
+    mutate_at(vars(RATING, 
+                   `BOX OFFICE`, 
+                   TITLE_LENGTH, 
+                   YEAR), 
+              funs(scale)) %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`, TITLE_LENGTH, YEAR) %>%
     dist(method = "euclidean")
