@@ -31,7 +31,7 @@ dw %>%
 
 # XML e Bluespec têm mais de 50 pushes / repositório e 
 # outras linguagens têm também números estranhos. Filtraremos.
-dw <- dw %>% 
+dw2 <- dw %>% 
   filter(PushEvent < 50, IssuesEvent < 50, ForkEvent < 18)
 ```
 
@@ -39,8 +39,8 @@ As variáveis são bastante assimétricas e concentradas em pequenos valores. Tr
 
 ```{r}
 # Escala de log 
-dw2 <- dw %>% 
-    mutate_each(funs(log), 2:5)
+# dw2 <- dw %>% 
+#     mutate_each(funs(log), 2:5)
 
 dw2 %>% 
     select(-repository_language) %>% 
@@ -61,6 +61,7 @@ dw2.scaled %>%
 
 ```{r}
 dists = dw2.scaled %>% 
+    as.data.frame() %>% 
     column_to_rownames("repository_language") %>% 
     dist(method = "euclidean")
 hc = hclust(dists, method = "ward.D")
@@ -68,7 +69,7 @@ hc = hclust(dists, method = "ward.D")
 plot(hc, cex = .6)
 plot(hc, hang = -1)
 
-n_clusters = 4
+n_clusters = 3
 rect.hclust(hc, k=n_clusters)
 
 dw2 <- dw2 %>% 
@@ -152,7 +153,7 @@ dists = dw2.scaled %>%
     dist() # só para plotar silhouetas depois
 plot(silhouette(km$cluster, dists), col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
 
-table(km %>% pull(cluster))
+table(km$cluster)
 ```
 
 ```{r}
@@ -178,8 +179,56 @@ p
 
 ```
 
-Qual seria um bom valor de k? Uma medida comumente usada no kmeans é comparar a distância (quadrática) entre o centro dos clusters e o centro dos dados com a distância (quadrática) entre os pontos todos nos dados e o centro dos dados. Aqui o centro dos dados é um ponto imaginário na média de todas as variáveis. Calculamos a distância do centro de cada cluster para o centro dos dados e multiplicamos pelo número de pontos nesse cluster. Somando esse valor para todos os clusters, temos `betweenss` abaixo. Se esse valor for próximo do somatório total das distâncias dos pontos para o centro dos dados (`totss`), os pontos estão próximos do centro de seu cluster. 
-Essa proporção pode ser usada para definir um bom valor de `k`. Quando ela para de crescer, para de valer à pena aumentar `k`.
+## Qual seria um bom valor de k? 
+
+Há duas medidas populares, a GAP statistic, e between/total sum of squares. A segunda é mais comum, e menos robusta. A primeira é mais robusta, mas precisa de mais dados para isso. 
+
+### GAP statistic
+
+A GAP compara a solução do agrupamento com cada k com a solução em um dataset onde não há estrutura de grupos. 
+
+```{r}
+plot_clusgap = function(clusgap, title="Gap Statistic calculation results"){
+    require("ggplot2")
+    gstab = data.frame(clusgap$Tab, k=1:nrow(clusgap$Tab))
+    p = ggplot(gstab, aes(k, gap)) + geom_line() + geom_point(size=5)
+    p = p + geom_errorbar(aes(ymax=gap+SE.sim, ymin=gap-SE.sim), width = .2)
+    p = p + ggtitle(title)
+    return(p)
+}
+
+gaps <- dw2.scaled %>% 
+    select(-repository_language) %>% 
+    clusGap(FUN = kmeans, nstart = 20, K.max = 8, B = 200)
+plot_clusgap(gaps)
+
+
+```
+
+
+A estrutura de grupos e número de grupos adequado é mais clara no exemplo de filmes:
+
+```{r}
+filmes = read_csv(here::here("dados/filmes-scarlett-johanssson.csv"))
+gaps <- filmes %>% 
+    select(`BOX OFFICE`, RATING) %>% 
+    mutate(RATING = log10(RATING)) %>% 
+    mutate_all(scale) %>% 
+    clusGap(FUN = kmeans, nstart = 20, K.max = 8)
+plot_clusgap(gaps)
+```
+
+### Between/totss
+
+Uma medida comumente usada no kmeans é _comparar a distância (quadrática) entre o centro dos clusters e o centro dos dados com a distância (quadrática) entre os pontos todos nos dados e o centro dos dados_. 
+
+Quebrando essa ideia para ficar mais fácil de entender: 
+
+Primeiro, o _centro dos dados_ é um ponto imaginário na média de todas as variáveis. É um ponto que está no meio dos dados. Em uma situação onde cada ponto é um grupo (e os grupos são os mais coesos possíveis), a soma das distâncias dos grupos para o centro dos dados é igual à soma da distância dos pontos para o centro dos dados. Generalizando: se houver estrutura de grupos e ela estiver capturada pelo agrupamento, o somatório da distância do centro de cada grupo para o centro geral dos dados será um valor alto.
+
+Para medir para quais valores de `k` isso acontece, calculamos a _distância do centro de cada cluster para o centro dos dados_ e multiplicamos pelo número de pontos nesse cluster. Somando esse valor para todos os clusters, temos `betweenss` abaixo. 
+
+Se esse valor for próximo do somatório total das distâncias dos pontos para o centro dos dados (`totss`), os pontos estão próximos do centro de seu cluster. Essa proporção pode ser usada para definir um bom valor de `k`. Quando ela para de crescer, para de valer à pena aumentar `k`.
 
 ```{r}
 set.seed(123)
@@ -253,27 +302,6 @@ explorando_k %>%
 
 ```
 
-
-# Mais um exemplo
-
-O dataset ruspini é clássico para ilustrar agrupamento.
-
-```{r}
-str(ruspini)
-
-ggplot(ruspini, aes(x = x, y = y)) + 
-  geom_point(size = 3)
-
-summary(ruspini)
-
-rs <- data.frame((ruspini))
-rs <- data.frame(scale(ruspini))
-colMeans(rs)
-
-ggplot(rs, aes(x = x, y = y)) + 
-  geom_point(size = 3)
-
-```
 
 ## Hierárquico
 
