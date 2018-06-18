@@ -467,6 +467,7 @@ plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias))
 ```
 
 
+
 ## Mais variáveis 
 
 E se tivéssemos mais de duas variáveis?
@@ -532,5 +533,25 @@ filmes2_long %>%
 ```
 
 
+```{r}
+library(plotly)
+p <- filmes2_agrupados %>%
+    plot_ly(type = 'parcoords',
+            line = list(color = ~ grupo),
+            dimensions = list(
+                list(range = c(1, 4), label = "grupo", values = ~grupo),
+                list(range = c(0, 100),
+                     label = 'Avaliação', values = ~RATING),
+                list(range = c(0, 3),
+                     label = 'Bilheteria (log10)', values = ~log10(`BOX OFFICE`)),
+                list(range = c(0, 40),
+                     label = 'Comprimento título', values = ~TITLE_LENGTH),
+                list(range = c(1980, 2020),
+                     label = 'Ano', values = ~YEAR)
+            )
+    )
+p
+
+```
 
 
