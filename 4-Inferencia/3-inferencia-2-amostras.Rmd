@@ -15,7 +15,6 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(resample) # <-- Para bootstrap!
-library(GGally)
 theme_set(theme_bw())
 ```
 
@@ -56,15 +55,26 @@ A outra é a `boot`:
 
 ```{r}
 library(boot)
-fun.boot <- function(x, i) {
+meu_theta <- function(x, i) {
     mean(x[i])
 }
 
 res.boot <- boot(data = experiment$news, 
-                 statistic = fun.boot, 
+                 statistic = meu_theta, 
                  R = 5000)
-plot(res.boot)
-boot.ci(boot.out = res.boot, conf = 0.95, type = "bca")
+
+#plot(res.boot)
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "basic")
+
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "bca")
+
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "perc")
 ```
 
 ## Inferência com duas amostras:
@@ -83,9 +93,10 @@ median.old = CI.percentile(b, probs = c(.025, .975))
 median.old 
 
 df = data.frame(rbind(mean.news, 
-                      median.news,
-                      mean.old,
-                      median.old))
+                      # median.news,
+                      mean.old
+                      # median.old
+                      ))
 df$medida = row.names(df)
 
 df %>% 
@@ -137,6 +148,26 @@ data.frame(means.diff) %>%
 ```
 
 ## Diferenças pareadas
+
+```{r}
+meu_theta <- function(x, i) {
+    x %>% 
+        slice(i) %>% 
+        summarise(resultado = mean(old / news)) %>% 
+        pull(resultado)
+}
+
+res.boot <- boot(data = experiment, 
+                 statistic = meu_theta, 
+                 R = 5000)
+
+#plot(res.boot)
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "basic")
+
+```
+
 
 ```{r}
 # NÃO PAREADO!
