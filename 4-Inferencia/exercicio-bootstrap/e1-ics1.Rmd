@@ -1,0 +1,346 @@
+---
+title: "ICs, parte 1"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(here)
+library(learnr) # <-- Para que esse tutorial seja interativo
+library(boot) # <-- Para bootstrap
+
+knitr::opts_chunk$set(echo = FALSE)
+theme_set(theme_bw())
+
+amostra = read_csv(here("exercicio-bootstrap/sample-lastfm.csv"), col_types = "cddii") 
+dados = amostra
+```
+
+
+```{r}
+##################################
+# **Este notebook é um tutorial interativo. Clique em `Run Document` em cima e à esquerda no RStudio**
+##################################
+```
+
+## Intervalos de confiança
+
+Este é um tutorial para lhe colocar em contato com bootstrap para intervalos de confiança na prática. **Este notebook é um tutorial interativo. Se você estiver lendo o código no RStudio, não faça isso. clique em `Run Document` em cima e à esquerda no RStudio**. 
+
+Ao mesmo tempo, na medida que você for produzindo código, você pode querer salvá-lo em algum outro notebook, já que quando você fechar o tutorial ele se perderá.
+
+Outra coisa: os 4 primeiros notebooks em https://github.com/nazareno/ciencia-de-dados-1/tree/master/4-Inferencia são sobre intervalos de confiança e bootstrap. E tem código. Tem também vários links de livros online no canvas. Na medida que precisar, revise lá.
+
+## Uma dica
+
+Lembre que existe mais de um algoritmo para estimar o IC a partir da distribuição amostral que derivamos do bootstrap. Principalmente: em situações onde essa distribuição amostral é enviesada para um lado (longe de simétrica), o método BCA é bem mais confiável que o Basic:
+
+```
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "basic")
+
+# ou 
+
+boot.ci(boot.out = res.boot, 
+        conf = 0.95, 
+        type = "bca")
+```
+
+## Um IC com uma população sintética
+
+### O começo
+
+Para ganhar intimidade com a ideia de inferência um bom começo é *criarmos* populações sintéticas que nós sabemos exatamente como funcionam, e simularmos o processo de inferência de estatísticas dela a partir de amostras. **Não faremos isso em nossa pesquisa na prática**, mas a simulação ajuda muito a entender os conceitos. 
+
+Por exemplo, com seguinte população: 
+
+```{r pop1, exercise = FALSE, echo = TRUE}
+set.seed(1234)
+
+populacao1 = tibble(participante = 1:10000, 
+                    tempo_no_site = 100 * rweibull(10000, 1, 1))
+
+glimpse(populacao1)
+
+populacao1 %>% 
+  ggplot(aes(x = tempo_no_site)) + 
+  geom_histogram(binwidth = 10)
+
+summary(populacao1$tempo_no_site)
+```
+
+Lembre: **esta é a população**. 
+
+Se um pesquisador realizar uma amostra dessa população e quiser inferir por exemplo onde está a média de `tempo_no_site` *na população*:
+
+```{r intro-boot, exercise = FALSE, echo = TRUE}
+uma_amostra = sample_n(populacao1, 100)
+
+glimpse(uma_amostra)
+
+funcao_bootstrap <- function(dado, indices){
+    d = dado %>% 
+        slice(indices) %>% # slice(x, c(1, 4, 5)) retorna um vetor com os elementos nos índices 1, 4 e 5 de x
+        pull(tempo_no_site)         # tempo_no_site é o nome da variável que nos interessa
+    return(mean(d))
+}
+
+bootstraps <- boot(data = uma_amostra, 
+                   statistic = funcao_bootstrap, # <- referência para a função 
+                   R = 2000) # número de bootstraps
+
+glimpse(bootstraps$t)
+```
+
+E essa seria a distribuição amostral estimada via bootstrap:
+
+```{r dist-amostral-exemplo1, exercise = FALSE, echo = TRUE}
+tibble(estatistica = as.double(bootstraps$t)) %>% 
+  ggplot(aes(x = estatistica)) + 
+  geom_histogram(binwidth = 2, fill = "white", color = "pink")
+```
+
+Essa é a faixa de valores necessária em relação à media da amostra que temos para incluir a média nos bootstraps 95% do tempo: 
+
+```{r intervalo-boot, exercise = FALSE, echo = TRUE}
+diferencas = tibble(dif = as.double(bootstraps$t) - mean(uma_amostra$tempo_no_site))
+
+diferencas %>% 
+  ggplot(aes(x = dif)) + 
+  geom_histogram(binwidth = 2, fill = "white", color = "pink") + 
+  geom_vline(xintercept = quantile(diferencas$dif, 0.025)[[1]]) + 
+  geom_vline(xintercept = quantile(diferencas$dif, 0.975)[[1]])
+```
+
+Com essa informação, podemos (pedir à biblioteca para) calcular o intervalo de confiança para a média:
+
+```{r funcao-boot, exercise = FALSE, echo = TRUE}
+boot.ci(bootstraps, conf = 0.95, type = "basic")
+```
+
+O IC inclui a média da população? Era esperado? Podia não ter incluído? 
+
+### Agora você
+
+Baseado no código acima, calcule o **IC da mediana** dessa mesma variável. Use a mesma variável amostra.
+
+```{r faca-mediana1, exercise=TRUE, exercise.lines = 10}
+
+
+```
+
+Podemos afirmar se valor da média é superior ou inferior ao da mediana (na população)? Isso era esperado?
+
+## IC das diferenças, sintético
+
+Agora façamos o seguinte: vamos gerar um conjunto de dados onde há dois grupos de observações, e fazer inferências sobre *a comparação dessa estatística para os dois grupos na população*.
+
+### Quando há diferença
+
+```{r pop2, exercise = FALSE, echo = TRUE}
+set.seed(1234)
+
+grupo1 = tibble(participante = 1:10000, 
+                grupo = "a",
+                tempo_no_site = 100 * rweibull(10000, 1, 1))
+
+grupo2 = tibble(participante = 1:10000, 
+                grupo = "b",
+                tempo_no_site = 100 * rweibull(10000, 1, 1.3))
+
+populacao2 = bind_rows(grupo1, grupo2)
+
+glimpse(populacao2)
+
+populacao2 %>% 
+  ggplot(aes(x = tempo_no_site, color = grupo)) + 
+  geom_density()
+
+populacao2 %>% 
+  group_by(grupo) %>% 
+  summarise_all(funs(mean, median))
+```
+
+De novo, faremos uma amostra da população:
+
+```{r amostra2, exercise = FALSE, echo = TRUE}
+set.seed(123)
+amostra_2grupos = sample_n(populacao2, 150)
+
+amostra_2grupos %>% 
+  group_by(grupo) %>% 
+  summarise_all(funs(mean, median))
+```
+
+Essa diferença entre as médias que observamos na amostra é significativa? Ou seja, temos confiança de que ela acontece na populaçõa? 
+
+Para inferir sobre a diferença na média de `tempo_no_site` na população, precisamos alterar a função `funcao_boostrap`:
+
+```{r boot2, exercise = FALSE, echo = TRUE}
+funcao_bootstrap <- function(dado, indices){
+    d = dado %>% 
+      slice(indices) %>% 
+      group_by(grupo) %>% 
+      summarise(media_grupo = mean(tempo_no_site)) %>% 
+      pull(media_grupo)
+    
+    return(d[1] - d[2])
+}
+
+bootstraps <- boot(data = amostra_2grupos, 
+                   statistic = funcao_bootstrap, # <- referência para a função 
+                   R = 2000) # número de bootstraps
+
+glimpse(bootstraps$t)
+
+boot.ci(bootstraps, conf = 0.95, type = "basic")
+```
+
+E aí?
+
+### E quando não há diferença na população? 
+
+Parta do exemplo abaixo e gere uma população onde os grupos `a` e `b` tem exatamente o mesmo valor da média. 
+
+Em seguida, gere uma amostra de 200 observações dessa população. 
+
+**Na amostra há diferença entre as médias??**
+
+Por fim, faça o IC da diferença das médias: o que a inferência nos diz sobre a população? Está correto?
+
+
+```{r pop3, exercise = TRUE, echo = TRUE}
+set.seed(1234)
+
+grupo1 = tibble(participante = 1:10000, 
+                grupo = "a",
+                tempo_no_site = 100 * rweibull(10000, 1, 1))
+
+grupo2 = tibble(participante = 1:10000, 
+                grupo = "b",
+                tempo_no_site = 100 * rweibull(10000, 1, 1.3))
+
+populacao2 = bind_rows(grupo1, grupo2)
+
+glimpse(populacao2)
+
+populacao2 %>% 
+  ggplot(aes(x = tempo_no_site, color = grupo)) + 
+  geom_density()
+
+populacao2 %>% 
+  group_by(grupo) %>% 
+  summarise_all(funs(mean, median))
+```
+
+
+```{r boot3, exercise = TRUE, echo = TRUE}
+
+```
+
+## Dados do Last.fm
+
+Para um exemplo mais real, utilizaremos como dados uma amostra dataset do experimento com usuários do Lastfm sobre o qual conversamos em sala. 
+
+```{r descreve_dados, exercise = FALSE}
+dados %>% 
+    glimpse()
+
+dados %>% 
+    ggplot(aes(x = news)) + 
+    geom_histogram(binwidth = 20, fill = "darkblue")
+
+dados %>% 
+    ggplot(aes(x = old)) + 
+    geom_histogram(binwidth = 20, fill = "orange")
+
+dados %>% 
+    ggplot(aes(x = ecletic)) + 
+    geom_histogram(binwidth = 500, fill = "brown")
+
+dados %>% 
+    ggplot(aes(x = media_pop)) + 
+    geom_histogram(binwidth = .25, fill = "darkgreen")
+```
+
+Se quisermos estimar onde está a média do número de artistas novos escutados pelos participantes do experimento, nosso código seria algo desse tipo:
+
+```{r exemplo-media, exercise = FALSE, echo = TRUE}
+funcao_bootstrap <- function(dado, indices){
+    d = dado %>% 
+        slice(indices) %>% # slice(x, c(1, 4, 5)) retorna um vetor com os elementos nos índices 1, 4 e 5 de x
+        pull(news)         # news é o nome da variável que nos interessa
+    return(mean(d))
+}
+
+bootstraps <- boot(data = amostra, 
+                   statistic = funcao_bootstrap, # <- referência para a função 
+                   R = 2000) # número de bootstraps
+
+glimpse(bootstraps$t)
+```
+
+E essa seria a distribuição amostral estimada via bootstrap:
+
+```{r dist-amostral-exemplo, exercise = FALSE, echo = TRUE}
+tibble(estatistica = as.double(bootstraps$t)) %>% 
+    ggplot(aes(x = estatistica)) + 
+    geom_histogram(binwidth = .1, fill = "white", color = "darkred")
+
+boot.ci(bootstraps, conf = 0.95, type = "basic")
+```
+
+
+Calcule o IC da mediana dessa variável. Dá para afirmarmos se valor da média é superior ou inferior ao da mediana (na população)? Isso era esperado?
+
+```{r faca-mediana, exercise=TRUE, exercise.lines = 10}
+
+
+
+```
+
+
+## Diferenças via ICs
+
+Ok, agora suponha que queiramos calcular se o número de artistas novos escutados pelos participantes de nosso experimento é maior ou menor que o número de artistas do conjunto que usamos para determinar o que ele já conhecia. Calcule os ICs para ambos e proponha uma resposta. 
+
+E conseguimos estimar o tamanho da diferença?
+
+```{r diff-via-ics, exercise=TRUE, exercise.lines = 10}
+
+
+
+```
+
+
+## ICs da diferença
+
+Para que possamos estimar o IC da diferença, precisamos definir a estatística *diferença entre novos e antigos* e aí estimar o IC dela. 
+
+*Podemos afirmar com o nível de confiança que você escolheu que ela é diferente de zero?*
+
+```{r ics-da-diff, exercise=TRUE, exercise.lines = 10}
+amostra = amostra %>%  
+    mutate(diferenca = news/2 - old/2)
+
+```
+
+
+## Diferenças não pareadas
+
+Pelo método anterior, era possível calcular a diferença entre news e old para cada participante do experimento. Isso se chama *diferença pareada*. Se quisermos calcular a diferença entre (a) a quantidade de novos artistas escutados por um subgrupo dos participantes que gosta muito de artistas populares pop e (b) a quantidade  de novos artistas escutados por um subgrupo dos participantes que gosta mais de artistas obscuros, eles subgrupos serão de participantes diferentes. Por isso, não poderemos fazer uma diferença pareada.
+
+Reescreva a função `funcao_bootstrap` para que ela faça a diferença das médias em cada boostrap e calcule abaixo o IC da diferença não-pareada. Podemos afirmar com 95% de confiança que ela é diferente de zero? O que isso significa?
+
+```{r nao-pareada, exercise=TRUE, exercise.lines = 10}
+amostra = amostra %>%  
+    filter(media_pop > 5.74 | media_pop < 5.2) %>%  # <- deixa apenas os extremos
+    mutate(gosta_de_pop = media_pop > 5.7)
+
+
+```
+
+
+
