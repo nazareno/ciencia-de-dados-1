@@ -1,0 +1,270 @@
+---
+title: 'Testes de permutação e p-valores: exemplo com A/B'
+author: "Nazareno Andrade"
+output: 
+  html_notebook:
+    theme: readable
+    fig_width: 7
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+```{r load libraries, echo = FALSE, warning=FALSE}
+library(tidyverse)
+library(boot)
+theme_set(theme_bw())
+```
+
+## O cenário
+
+Os dados são uma amostra de sessões reais de visitantes à página da biblioteca da Montana University. Há 4 designs do site, mudando o nome de uma seção. A métrica de interesse é a proporção de visitantes que clicam na seção em questão em cada um dos designs. 
+
+Ou seja: temos uma amostra de sessões, cada uma dizendo se houve clique no link em questão ou não. A estatística que nos interessa é a diferença entre a proporção de sessões com clique em dois grupos de sessões, um com um design e outro com outro. Na web, essa proporção se chama  *clickthrough rate*.
+
+<br><br>
+
+O site original da biblioteca é esse:
+
+![Site da biblioteca](https://quod.lib.umich.edu/w/weave/images/12535642.0001.101-00000003.png)
+
+![Variação 1: Connect](https://quod.lib.umich.edu/w/weave/images/12535642.0001.101-00000004.png)
+
+![Variação 2: Learn](https://quod.lib.umich.edu/w/weave/images/12535642.0001.101-00000005.png)
+
+
+![Variação 3: Services](https://quod.lib.umich.edu/w/weave/images/12535642.0001.101-00000007.png)
+
+### A amostra
+
+```{r}
+sessions = read_csv(here::here("dados/library-website.csv"), 
+                    col_types = "cil")
+
+glimpse(sessions)
+```
+
+Calculando a proporção na amostra:
+
+```{r}
+sessions %>% 
+    ggplot() + 
+    aes(x = reorder(version, click_on_target, NROW), fill = click_on_target) + 
+    geom_bar() + 
+    labs(
+        x = "Versão do site", 
+        y = "Sessões", 
+        fill = "Clique no alvo"
+    )
+
+sessions %>% 
+    ggplot() + 
+    aes(x = reorder(version, click_on_target, NROW), fill = click_on_target) + 
+    geom_bar(position = "fill") + 
+    labs(
+        x = "Versão do site", 
+        y = "Proporção das sessões", 
+        fill = "Clique no alvo"
+    )
+```
+
+
+```{r}
+sessions %>% 
+    group_by(version) %>% 
+    summarise(`Clickthrough rate` = sum(click_on_target) / n()) %>% 
+    ggplot() + 
+    aes(x = reorder(version, -`Clickthrough rate`), 
+        y = `Clickthrough rate`) + 
+    geom_point(size = 5, colour = "IndianRed") + 
+    labs(x = "")
+
+```
+
+### Nossa questão
+
+A pergunta é: dada essa amostra, podemos inferir que há uma diferença na taxa de cliques também *na população de sessões de onde saiu essa amostra?*
+
+
+## Utilizando intervalos de confiança
+
+```{r}
+set.seed(123)
+
+calcula_ic = function(data){
+    bootstrap = boot(data, 
+                     statistic = function(x, i){sum(x[i])/NROW(x)}, 
+                     R = 2000)
+    ci = boot.ci(bootstrap, 
+                 conf = 0.95, 
+                 type = "basic")
+    ci
+}
+
+ics = sessions %>% 
+    select(-session) %>% 
+    nest(click_on_target) %>% 
+    mutate(
+        media_amostral = map_dbl(data, ~ sum(.x$click_on_target / NROW(.x))),
+        ic = map(data, ~ calcula_ic(.x$click_on_target))) %>% 
+    mutate(lower = map_dbl(ic, ~ .x$basic[[4]]), 
+           upper = map_dbl(ic, ~ .x$basic[[5]]))
+
+head(ics)
+```
+
+```{r}
+ics %>% 
+    ggplot() + 
+    aes(x = reorder(version, -upper), y = media_amostral, ymin = lower, ymax = upper) + 
+    geom_errorbar(width = .1) + 
+    geom_point(size = 3, colour = "IndianRed") + 
+    labs(
+        x = "Versão do site", 
+        y = "Click through rate"
+    )
+```
+
+### ICs das diferenças
+
+```{r}
+set.seed(123)
+
+ic_diff = function(data, group1, group2){
+    difference = function(data, i, group1, group2){
+        d = data %>% 
+            slice(i) %>% 
+            group_by(version) %>% 
+            summarise(ct = sum(click_on_target) / n())
+        m1 = d %>% filter(version == group1) %>% pull(ct)
+        m2 = d %>% filter(version == group2) %>% pull(ct)
+        m1 - m2
+    }
+    
+    bootstrap = boot(data, 
+                     statistic = difference, 
+                     R = 1000,
+                     group1 = group1, 
+                     group2 = group2)
+    
+    ci = boot.ci(bootstrap, 
+                 conf = 0.95, 
+                 type = "basic")
+    ci
+}
+
+
+comparacoes = 
+    frame_data(
+        ~comparacao, ~ic, 
+        "Interact - Connect", ic_diff(sessions, "Interact", "Connect"),
+        "Interact - Services", ic_diff(sessions, "Interact", "Services"),
+        "Interact - Learn", ic_diff(sessions, "Interact", "Learn"),
+        "Services - Learn", ic_diff(sessions, "Services", "Learn"), 
+        "Services - Connect", ic_diff(sessions, "Services", "Connect"), 
+    ) %>% 
+    mutate(lower = map_dbl(ic, ~ .x$basic[[4]]), 
+           upper = map_dbl(ic, ~ .x$basic[[5]]))
+
+
+comparacoes %>% 
+    ggplot() + 
+    aes(x = comparacao, ymin = lower, ymax = upper) + 
+    geom_hline(yintercept = 0, colour = "red") + 
+    geom_errorbar(width = .1, size = 1.1) + 
+    labs(
+        x = "Comparação", 
+        y = "Opção 1 - Opção 2"
+    )
+
+```
+
+
+## Testes de hipótese e p-valores
+
+```{r}
+group1 = "Interact"
+group2 = "Connect"
+
+para_comparar = sessions %>% 
+    filter(version %in% c(group1, group2)) 
+
+# A diferença na amostra, que queremos comparar com o modelo nulo
+d = para_comparar %>% 
+    group_by(version) %>% 
+    summarise(ct = sum(click_on_target) / n())
+m1 = d %>% filter(version == group1) %>% pull(ct)
+m2 = d %>% filter(version == group2) %>% pull(ct)
+
+diferenca_amostral = m1 - m2
+
+# Permutações para calcular o que acontece no modelo nulo
+permutacoes = replicate(10000, 
+          {
+              d = para_comparar %>% 
+                  mutate(version_shuffled = sample(version, n())) %>% 
+                  group_by(version_shuffled) %>% 
+                  summarise(ct = sum(click_on_target) / n())
+              m1 = d %>% filter(version_shuffled == group1) %>% pull(ct)
+              m2 = d %>% filter(version_shuffled == group2) %>% pull(ct)
+              m1 - m2
+          })
+
+tibble(diferenca = permutacoes) %>% 
+  ggplot(aes(x = diferenca)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(xintercept = diferenca_amostral, size = 2, color = "orange")
+
+sum(abs(permutacoes) >= abs(diferenca_amostral)) / length(permutacoes)
+```
+
+```{r}
+library(coin)
+
+independence_test()
+
+chisq_test(as.factor(click_on_target) ~ as.factor(version),
+           data = filter(sessions, version %in% c("Interact", "Connect")), 
+           distribution = "approximate") %>%
+    pvalue()
+```
+
+### outro pacote
+
+
+```{r}
+library(resample)
+
+prop = function(x){
+    sum(x)/NROW(x)
+}
+
+sessions %>% 
+    filter(version %in% c("Interact", "Connect")) %>% 
+    permutationTest2(statistic = prop(click_on_target), 
+                     treatment = version)
+
+```
+
+```{r}
+sessions %>% 
+    filter(version %in% c("Interact", "Learn")) %>% 
+    permutationTest2(statistic = prop(click_on_target), 
+                     treatment = version)
+
+```
+
+```{r}
+sessions %>% 
+    filter(version %in% c("Services", "Connect")) %>% 
+    permutationTest2(statistic = prop(click_on_target), 
+                     treatment = version)
+
+```
+
