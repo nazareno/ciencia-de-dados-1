@@ -14,7 +14,6 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(GGally)
 theme_set(theme_bw())
 ```
 
@@ -47,6 +46,7 @@ sw = ratings %>% filter(grepl("Star Wars", title) &
 
 
 ggplot(sw, aes(y = rating, x = title)) + 
+    #geom_count(alpha = .4) + 
   stat_summary(fun.data = "mean_cl_boot") + 
   coord_flip()
 
@@ -66,6 +66,35 @@ sw4x5 = sw %>%
   filter(title %in% c(nomes_episodios[4], 
                       nomes_episodios[5])) %>% 
   select(title, rating)
+```
+
+
+```{r}
+meu_theta = function(x, i){
+    media_iv = x %>% 
+        slice(i) %>% 
+        filter(title == "Star Wars: Episode IV - A New Hope (1977)") %>% 
+        pull(rating) %>% 
+        mean()
+    
+    media_v = x %>% 
+        slice(i) %>% 
+        filter(title != "Star Wars: Episode IV - A New Hope (1977)") %>% 
+        pull(rating) %>% 
+        mean()
+    
+    media_v - media_iv
+}
+
+resultado = sw4x5 %>% 
+    boot(statistic = meu_theta, 
+         R = 2000)
+
+
+boot.ci(boot.out = resultado, 
+        conf = 0.95, 
+        type = "basic")
+    
 ```
 
 
@@ -125,8 +154,8 @@ tibble(diferenca = diffs) %>%
   geom_histogram(bins = 30) + 
   geom_vline(xintercept = diff.media.observada.5x6)
 
-# p-valor!
-sum(abs(diffs) >= abs(diff.media.observada.1x4)) / length(diffs)
+# p-valor
+sum(abs(diffs) >= abs(diff.media.observada.5x6)) / length(diffs)
 ```
 
 Episódio 4 x 5
@@ -189,7 +218,7 @@ permutationTest2(sw4x5, median(rating), treatment = title)$stats %>% t()
 
 ## Por que two-tailed
 
-Normalmente estamos interessados em rejeitar a hipótese nula da igualdade. A igualdade está em torno do zero, e portanto a rejeição acontece quando o valor observado está longe de zero em qualquer direção. Existem testes one-tailed que não dão informação sobre se há diferença nas duras direções. Porém na prática é uma prática requerida que você decida o teste antes de realizá-lo, e é difícil decidir que apenas diferenças em uma direção serão relevantes. Além disso, devido à pressão por resultado, decidir usar one-tailed é sempre um truque que aumenta sua chance de produzir um teste com diferença significativa, o que é claramente uma manipulação na sua metodologia.
+Normalmente estamos interessados em rejeitar a hipótese nula da igualdade. A igualdade está em torno do zero, e portanto a rejeição acontece quando o valor observado está longe de zero em qualquer direção. Existem testes one-tailed que não dão informação sobre se há diferença nas duas direções. Porém na prática é uma prática requerida que você decida o teste antes de realizá-lo, e é difícil decidir que apenas diferenças em uma direção serão relevantes. Além disso, devido à pressão por resultado, decidir usar one-tailed é sempre um truque que aumenta sua chance de produzir um teste com diferença significativa, o que é claramente uma manipulação na sua metodologia.
 
 # Testes conhecidos que você pode encontrar
 
