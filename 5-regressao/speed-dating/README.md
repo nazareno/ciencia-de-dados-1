@@ -1,7 +1,7 @@
 # Romance
 
 ## Os dados
-Temos dados descrevendo 5000 encontros relâmpagos (speed dating, procura no google) de 4 minutos envolvendo 310 jovens americanos. Os dados originais foram coletados por professores da Columbia Business School. Aqui estamos usando uma versão com menos colunas para agilizar para vocês.
+Temos dados descrevendo 5000 encontros relâmpagos (speed dating, procura no google) de 4 minutos envolvendo 310 jovens americanos. Os dados originais foram coletados por professores da Columbia Business School [no experimento descrito aqui](http://faculty.chicagobooth.edu/emir.kamenica/documents/genderDifferences.pdf). Aqui estamos usando uma versão com menos colunas para agilizar para vocês.
 
 Os participantes tinham vários encontros de 4 minutos por noite. Após cada um, preenchiam fichas avaliando aqueles com quem se encontraram. Cada linha nos dados representa um desses encontros.
 
