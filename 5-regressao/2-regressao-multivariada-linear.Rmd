@@ -10,9 +10,7 @@ output:
 
 ---
 
-```{r}
-suppressWarnings(library(tidyverse))
-
+```{r setup, warning=FALSE, message=FALSE}
 library(tidyverse)
 theme_set(theme_bw())
 library(GGally)
@@ -20,7 +18,6 @@ library(ggfortify)
 library(broom)
 require(ISLR)
 library(modelr) # devtools::install_github("hadley/modelr")
-
 ```
 
 # Os dados
