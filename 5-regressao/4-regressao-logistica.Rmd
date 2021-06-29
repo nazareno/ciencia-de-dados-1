@@ -331,6 +331,7 @@ falsos_negativos
 
 # Outro exemplo: fit relacionando preferências e gêneros em speed dating
 
+
 ```{r}
 x = read_csv("https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/5-regressao/speed-dating/speed-dating2.csv", col_types = 
                cols(
